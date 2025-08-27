@@ -1,5 +1,6 @@
-import { type User, type InsertUser, type Service, type InsertService, type Booking, type InsertBooking, type Quote, type InsertQuote, type Invoice, type InsertInvoice } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type User, type InsertUser, type Service, type InsertService, type Booking, type InsertBooking, type Quote, type InsertQuote, type Invoice, type InsertInvoice, users, services, bookings, quotes, invoices } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -29,168 +30,155 @@ export interface IStorage {
   updateInvoiceStatus(id: string, status: string): Promise<Invoice | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private services: Map<string, Service>;
-  private bookings: Map<string, Booking>;
-  private quotes: Map<string, Quote>;
-  private invoices: Map<string, Invoice>;
-
+export class DatabaseStorage implements IStorage {
   constructor() {
-    this.users = new Map();
-    this.services = new Map();
-    this.bookings = new Map();
-    this.quotes = new Map();
-    this.invoices = new Map();
-    
-    // Initialize with demo services
+    // Initialize with real services from myjantes.fr
     this.initializeServices();
   }
 
-  private initializeServices() {
-    const services: Service[] = [
-      {
-        id: "service-1",
-        name: "Jantes Aluminium",
-        description: "Large sélection de jantes aluminium de toutes tailles et styles",
-        basePrice: "150.00",
-        image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200",
-        active: true,
-      },
-      {
-        id: "service-2",
-        name: "Changement de Pneus",
-        description: "Montage, équilibrage et service professionnel",
-        basePrice: "80.00",
-        image: "https://images.unsplash.com/photo-1486754735734-325b5831c3ad?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200",
-        active: true,
-      },
-      {
-        id: "service-3",
-        name: "Équilibrage & Géométrie",
-        description: "Optimisez la tenue de route et la durée de vie",
-        basePrice: "60.00",
-        image: "https://images.unsplash.com/photo-1601362840469-51e4d8d58785?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200",
-        active: true,
-      },
-    ];
+  private async initializeServices() {
+    // Check if services already exist
+    const existingServices = await db.select().from(services);
+    
+    if (existingServices.length === 0) {
+      const servicesData: InsertService[] = [
+        {
+          name: "Rénovation",
+          description: "Rénovation complète de vos jantes en aluminium avec finition professionnelle",
+          basePrice: "150.00",
+          image: "https://myjantes.fr/wp-content/uploads/2024/01/repar-jantes.jpg",
+          active: true,
+        },
+        {
+          name: "Personnalisation",
+          description: "Personnalisation de vos jantes selon vos goûts et couleurs préférées",
+          basePrice: "200.00",
+          image: "https://myjantes.fr/wp-content/uploads/2025/02/jantes-concaver-lexus-1024x675-1.webp",
+          active: true,
+        },
+        {
+          name: "Dévoilage",
+          description: "Réparation et redressement de jantes voilées",
+          basePrice: "80.00",
+          image: "https://myjantes.fr/wp-content/uploads/2024/01/dvoilage-3.jpg",
+          active: true,
+        },
+        {
+          name: "Décapage",
+          description: "Décapage professionnel pour remettre vos jantes à neuf",
+          basePrice: "120.00",
+          image: "https://myjantes.fr/wp-content/uploads/2025/02/jantes-intro-1024x675.webp",
+          active: true,
+        },
+      ];
 
-    services.forEach(service => {
-      this.services.set(service.id, service);
-    });
+      await db.insert(services).values(servicesData);
+    }
   }
 
   // Users
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { 
-      ...insertUser, 
-      id, 
-      createdAt: new Date().toISOString() 
-    };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   // Services
   async getServices(): Promise<Service[]> {
-    return Array.from(this.services.values()).filter(service => service.active);
+    return await db.select().from(services).where(eq(services.active, true));
   }
 
   async getService(id: string): Promise<Service | undefined> {
-    return this.services.get(id);
+    const [service] = await db.select().from(services).where(eq(services.id, id));
+    return service || undefined;
   }
 
   async createService(insertService: InsertService): Promise<Service> {
-    const id = randomUUID();
-    const service: Service = { ...insertService, id };
-    this.services.set(id, service);
+    const [service] = await db
+      .insert(services)
+      .values(insertService)
+      .returning();
     return service;
   }
 
   // Bookings
   async getUserBookings(userId: string): Promise<Booking[]> {
-    return Array.from(this.bookings.values()).filter(booking => booking.userId === userId);
+    return await db.select().from(bookings).where(eq(bookings.userId, userId));
   }
 
   async createBooking(booking: InsertBooking & { userId: string }): Promise<Booking> {
-    const id = randomUUID();
-    const newBooking: Booking = { 
-      ...booking, 
-      id, 
-      createdAt: new Date().toISOString() 
-    };
-    this.bookings.set(id, newBooking);
+    const [newBooking] = await db
+      .insert(bookings)
+      .values(booking)
+      .returning();
     return newBooking;
   }
 
   // Quotes
   async getUserQuotes(userId: string): Promise<Quote[]> {
-    return Array.from(this.quotes.values()).filter(quote => quote.userId === userId);
+    return await db.select().from(quotes).where(eq(quotes.userId, userId));
   }
 
   async getQuote(id: string): Promise<Quote | undefined> {
-    return this.quotes.get(id);
+    const [quote] = await db.select().from(quotes).where(eq(quotes.id, id));
+    return quote || undefined;
   }
 
   async createQuote(quote: InsertQuote & { userId: string }): Promise<Quote> {
-    const id = randomUUID();
-    const newQuote: Quote = { 
-      ...quote, 
-      id, 
-      createdAt: new Date().toISOString() 
-    };
-    this.quotes.set(id, newQuote);
+    const [newQuote] = await db
+      .insert(quotes)
+      .values(quote)
+      .returning();
     return newQuote;
   }
 
   async updateQuoteStatus(id: string, status: string, amount?: string): Promise<Quote | undefined> {
-    const quote = this.quotes.get(id);
-    if (quote) {
-      const updatedQuote = { ...quote, status, ...(amount && { amount }) };
-      this.quotes.set(id, updatedQuote);
-      return updatedQuote;
-    }
-    return undefined;
+    const [updatedQuote] = await db
+      .update(quotes)
+      .set({ status, ...(amount && { amount }) })
+      .where(eq(quotes.id, id))
+      .returning();
+    return updatedQuote || undefined;
   }
 
   // Invoices
   async getUserInvoices(userId: string): Promise<Invoice[]> {
-    return Array.from(this.invoices.values()).filter(invoice => invoice.userId === userId);
+    return await db.select().from(invoices).where(eq(invoices.userId, userId));
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
-    return this.invoices.get(id);
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice || undefined;
   }
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
-    const id = randomUUID();
-    const newInvoice: Invoice = { 
-      ...invoice, 
-      id, 
-      createdAt: new Date().toISOString() 
-    };
-    this.invoices.set(id, newInvoice);
+    const [newInvoice] = await db
+      .insert(invoices)
+      .values(invoice)
+      .returning();
     return newInvoice;
   }
 
   async updateInvoiceStatus(id: string, status: string): Promise<Invoice | undefined> {
-    const invoice = this.invoices.get(id);
-    if (invoice) {
-      const updatedInvoice = { ...invoice, status };
-      this.invoices.set(id, updatedInvoice);
-      return updatedInvoice;
-    }
-    return undefined;
+    const [updatedInvoice] = await db
+      .update(invoices)
+      .set({ status })
+      .where(eq(invoices.id, id))
+      .returning();
+    return updatedInvoice || undefined;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
