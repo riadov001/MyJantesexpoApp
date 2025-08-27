@@ -1,32 +1,59 @@
 import { useLocation } from "wouter";
-import { Home, Cog, Calendar, FileText, User } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Home, Cog, Calendar, FileText, User, Bell } from "lucide-react";
+import { AuthService } from "@/lib/auth";
 
 const navItems = [
   { path: "/services", icon: Cog, label: "Services", testId: "tab-services" },
   { path: "/booking", icon: Calendar, label: "Réserver", testId: "tab-booking" },
   { path: "/", icon: Home, label: "Accueil", testId: "tab-home" },
-  { path: "/history", icon: FileText, label: "Historique", testId: "tab-history" },
+  { path: "/notifications", icon: Bell, label: "Notifs", testId: "tab-notifications" },
   { path: "/profile", icon: User, label: "Profil", testId: "tab-profile" },
 ];
 
 export default function BottomNavigation() {
   const [location, setLocation] = useLocation();
+  
+  const { data: unreadCount } = useQuery({
+    queryKey: ["/api/notifications/unread-count"],
+    queryFn: async () => {
+      const token = AuthService.getToken();
+      if (!token) return { count: 0 };
+      const res = await fetch("/api/notifications/unread-count", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return res.ok ? res.json() : { count: 0 };
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   return (
     <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm bg-card border-t border-border ios-blur">
       <div className="flex items-center justify-around py-2 px-6">
         {navItems.map((item) => {
           const isActive = location === item.path;
+          const isNotificationTab = item.path === "/notifications";
+          const hasUnreadNotifications = unreadCount?.count > 0;
+          
           return (
             <button
               key={item.path}
-              className={`flex flex-col items-center py-2 space-y-1 ${
+              className={`flex flex-col items-center py-2 space-y-1 relative ${
                 isActive ? "text-primary" : "text-muted-foreground"
               }`}
               onClick={() => setLocation(item.path)}
               data-testid={item.testId}
             >
-              <item.icon size={20} />
+              <div className="relative">
+                <item.icon size={20} />
+                {isNotificationTab && hasUnreadNotifications && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">
+                      {unreadCount.count > 9 ? "9+" : unreadCount.count}
+                    </span>
+                  </div>
+                )}
+              </div>
               <span className="text-xs">{item.label}</span>
             </button>
           );
