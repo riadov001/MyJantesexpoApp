@@ -1,10 +1,11 @@
 import { AuthService } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Phone, Bell, FileText, Shield, LogOut, User } from "lucide-react";
+import { Phone, Bell, FileText, Shield, LogOut, User, Settings } from "lucide-react";
 
 export default function Profile() {
   const [, setLocation] = useLocation();
   const user = AuthService.getUser();
+  const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
     AuthService.removeToken();
@@ -21,7 +22,7 @@ export default function Profile() {
     {
       icon: Bell,
       label: "Notifications",
-      action: () => {},
+      action: () => setLocation("/notifications"),
       testId: "button-notifications"
     },
     {
@@ -35,6 +36,15 @@ export default function Profile() {
       label: "Politique de confidentialité",
       action: () => {},
       testId: "button-privacy"
+    },
+  ];
+
+  const adminMenuItems = [
+    {
+      icon: Settings,
+      label: "Administration",
+      action: () => setLocation("/admin"),
+      testId: "button-admin"
     },
   ];
 
@@ -73,6 +83,32 @@ export default function Profile() {
             </button>
           ))}
 
+          {/* Admin Section */}
+          {isAdmin && (
+            <>
+              <div className="border-t border-border my-4"></div>
+              <div className="px-4 py-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Administration
+                </p>
+              </div>
+              {adminMenuItems.map((item, index) => (
+                <button
+                  key={`admin-${index}`}
+                  className="w-full flex items-center space-x-4 p-4 hover:bg-secondary rounded-ios transition-colors"
+                  onClick={item.action}
+                  data-testid={item.testId}
+                >
+                  <item.icon className="w-5 h-5 text-primary" />
+                  <span className="flex-1 text-left font-medium">{item.label}</span>
+                  <i className="fas fa-chevron-right text-muted-foreground"></i>
+                </button>
+              ))}
+            </>
+          )}
+
+          <div className="border-t border-border my-4"></div>
+          
           <button
             className="w-full flex items-center space-x-4 p-4 hover:bg-secondary rounded-ios transition-colors text-red-400"
             onClick={handleLogout}

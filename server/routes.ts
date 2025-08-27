@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertBookingSchema, insertQuoteSchema, loginSchema } from "@shared/schema";
+import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertNotificationSchema, insertWorkProgressSchema, loginSchema } from "@shared/schema";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
@@ -23,6 +23,19 @@ const authenticateToken = (req: any, res: any, next: any) => {
     req.user = user;
     next();
   });
+};
+
+// Middleware to verify admin role
+const requireAdmin = async (req: any, res: any, next: any) => {
+  try {
+    const user = await storage.getUser(req.user.userId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Accès administrateur requis' });
+    }
+    next();
+  } catch (error) {
+    return res.status(500).json({ message: 'Erreur de vérification des permissions' });
+  }
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -240,6 +253,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Erreur lors de la récupération de l'historique" });
+    }
+  });
+
+  // Notifications routes
+  app.get("/api/notifications", authenticateToken, async (req: any, res) => {
+    try {
+      const notifications = await storage.getUserNotifications(req.user.userId);
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des notifications" });
+    }
+  });
+
+  app.post("/api/notifications/:id/read", authenticateToken, async (req: any, res) => {
+    try {
+      await storage.markNotificationAsRead(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la mise à jour de la notification" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", authenticateToken, async (req: any, res) => {
+    try {
+      const count = await storage.getUnreadNotificationsCount(req.user.userId);
+      res.json({ count });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors du comptage des notifications" });
+    }
+  });
+
+  // Work Progress routes
+  app.get("/api/work-progress/:bookingId", authenticateToken, async (req: any, res) => {
+    try {
+      const progress = await storage.getWorkProgressByBooking(req.params.bookingId);
+      res.json(progress);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération du suivi" });
+    }
+  });
+
+  // ADMIN ROUTES
+  app.get("/api/admin/dashboard", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const [bookings, quotes, invoices] = await Promise.all([
+        storage.getAllBookings(),
+        storage.getAllQuotes(),
+        storage.getAllInvoices(),
+      ]);
+
+      const stats = {
+        totalBookings: bookings.length,
+        pendingBookings: bookings.filter(b => b.status === 'pending').length,
+        totalQuotes: quotes.length,
+        pendingQuotes: quotes.filter(q => q.status === 'pending').length,
+        totalInvoices: invoices.length,
+        unpaidInvoices: invoices.filter(i => i.status === 'unpaid').length,
+        totalRevenue: invoices
+          .filter(i => i.status === 'paid')
+          .reduce((sum, i) => sum + parseFloat(i.amount), 0),
+      };
+
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des statistiques" });
+    }
+  });
+
+  app.get("/api/admin/bookings", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const bookings = await storage.getAllBookings();
+      res.json(bookings);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des réservations" });
+    }
+  });
+
+  app.post("/api/admin/bookings/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { status } = req.body;
+      const booking = await storage.updateBookingStatus(req.params.id, status);
+      
+      // Create notification for user
+      if (booking) {
+        await storage.createNotification({
+          userId: booking.userId,
+          title: "Statut de réservation mis à jour",
+          message: `Votre réservation est maintenant : ${status}`,
+          type: "booking",
+          relatedId: booking.id,
+        });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
+    }
+  });
+
+  app.get("/api/admin/quotes", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const quotes = await storage.getAllQuotes();
+      res.json(quotes);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des devis" });
+    }
+  });
+
+  app.post("/api/admin/quotes/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { status, amount } = req.body;
+      const quote = await storage.updateQuoteStatus(req.params.id, status, amount);
+      
+      // Create notification for user
+      if (quote) {
+        await storage.createNotification({
+          userId: quote.userId,
+          title: "Devis mis à jour",
+          message: amount ? `Votre devis a été chiffré à ${amount}€` : `Statut du devis : ${status}`,
+          type: "quote",
+          relatedId: quote.id,
+        });
+      }
+      
+      res.json(quote);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la mise à jour du devis" });
+    }
+  });
+
+  app.get("/api/admin/invoices", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoices = await storage.getAllInvoices();
+      res.json(invoices);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des factures" });
+    }
+  });
+
+  app.post("/api/work-progress", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const progressData = insertWorkProgressSchema.parse({
+        ...req.body,
+        updatedBy: req.user.userId,
+      });
+      
+      const progress = await storage.createWorkProgress(progressData);
+      
+      // Create notification for user
+      await storage.createNotification({
+        userId: progress.userId,
+        title: "Mise à jour du suivi",
+        message: progress.description,
+        type: "work_progress",
+        relatedId: progress.id,
+      });
+      
+      res.status(201).json(progress);
+    } catch (error) {
+      res.status(400).json({ message: "Données de suivi invalides" });
     }
   });
 

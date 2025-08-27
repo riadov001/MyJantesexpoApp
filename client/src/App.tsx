@@ -12,6 +12,10 @@ import Quote from "@/pages/quote";
 import History from "@/pages/history";
 import Profile from "@/pages/profile";
 import Contact from "@/pages/contact";
+import Notifications from "@/pages/notifications";
+import AdminDashboard from "@/pages/admin-dashboard";
+import AdminBookings from "@/pages/admin-bookings";
+import AdminQuotes from "@/pages/admin-quotes";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -21,6 +25,22 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   
   if (!isAuthenticated) {
     return <Redirect to="/login" />;
+  }
+  
+  return <Component />;
+}
+
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const isAuthenticated = AuthService.isAuthenticated();
+  const user = AuthService.getUser();
+  const isAdmin = user?.role === "admin";
+  
+  if (!isAuthenticated) {
+    return <Redirect to="/login" />;
+  }
+  
+  if (!isAdmin) {
+    return <Redirect to="/" />;
   }
   
   return <Component />;
@@ -53,8 +73,15 @@ function Router() {
           <Route path="/booking" component={() => <ProtectedRoute component={Booking} />} />
           <Route path="/quote" component={() => <ProtectedRoute component={Quote} />} />
           <Route path="/history" component={() => <ProtectedRoute component={History} />} />
+          <Route path="/notifications" component={() => <ProtectedRoute component={Notifications} />} />
           <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
           <Route path="/contact" component={() => <ProtectedRoute component={Contact} />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin" component={() => <AdminRoute component={AdminDashboard} />} />
+          <Route path="/admin/bookings" component={() => <AdminRoute component={AdminBookings} />} />
+          <Route path="/admin/quotes" component={() => <AdminRoute component={AdminQuotes} />} />
+          
           <Route>
             {isAuthenticated ? <Redirect to="/" /> : <Redirect to="/login" />}
           </Route>
