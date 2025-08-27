@@ -1,0 +1,90 @@
+import { Switch, Route, Redirect } from "wouter";
+import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthService } from "./lib/auth";
+import Login from "@/pages/login";
+import Home from "@/pages/home";
+import Services from "@/pages/services";
+import Booking from "@/pages/booking";
+import Quote from "@/pages/quote";
+import History from "@/pages/history";
+import Profile from "@/pages/profile";
+import Contact from "@/pages/contact";
+import BottomNavigation from "@/components/bottom-navigation";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
+
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const isAuthenticated = AuthService.isAuthenticated();
+  
+  if (!isAuthenticated) {
+    return <Redirect to="/login" />;
+  }
+  
+  return <Component />;
+}
+
+function Router() {
+  const [location] = useLocation();
+  const isAuthenticated = AuthService.isAuthenticated();
+  const showBottomNav = isAuthenticated && location !== "/login" && location !== "/contact";
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="max-w-sm mx-auto bg-background min-h-screen relative">
+        {/* Status Bar */}
+        <div className="h-11 flex items-center justify-between px-6 text-sm font-medium">
+          <span>9:41</span>
+          <div className="flex items-center space-x-1">
+            <i className="fas fa-signal text-xs"></i>
+            <i className="fas fa-wifi text-xs"></i>
+            <div className="w-6 h-3 border border-foreground rounded-sm">
+              <div className="w-4 h-1.5 bg-foreground rounded-sm m-0.5"></div>
+            </div>
+          </div>
+        </div>
+
+        <Switch>
+          <Route path="/login" component={Login} />
+          <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+          <Route path="/services" component={() => <ProtectedRoute component={Services} />} />
+          <Route path="/booking" component={() => <ProtectedRoute component={Booking} />} />
+          <Route path="/quote" component={() => <ProtectedRoute component={Quote} />} />
+          <Route path="/history" component={() => <ProtectedRoute component={History} />} />
+          <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
+          <Route path="/contact" component={() => <ProtectedRoute component={Contact} />} />
+          <Route>
+            {isAuthenticated ? <Redirect to="/" /> : <Redirect to="/login" />}
+          </Route>
+        </Switch>
+
+        {showBottomNav && <BottomNavigation />}
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

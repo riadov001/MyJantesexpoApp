@@ -1,0 +1,103 @@
+import { sql } from "drizzle-orm";
+import { pgTable, text, varchar, timestamp, integer, decimal, jsonb, boolean } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const services = pgTable("services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
+  image: text("image"),
+  active: boolean("active").default(true),
+});
+
+export const bookings = pgTable("bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  serviceId: varchar("service_id").references(() => services.id).notNull(),
+  date: text("date").notNull(),
+  timeSlot: text("time_slot").notNull(),
+  vehicleBrand: text("vehicle_brand").notNull(),
+  vehiclePlate: text("vehicle_plate").notNull(),
+  notes: text("notes"),
+  status: text("status").default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const quotes = pgTable("quotes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  serviceId: varchar("service_id").references(() => services.id),
+  vehicleBrand: text("vehicle_brand").notNull(),
+  vehicleModel: text("vehicle_model").notNull(),
+  vehicleYear: text("vehicle_year").notNull(),
+  vehicleEngine: text("vehicle_engine"),
+  description: text("description").notNull(),
+  photos: jsonb("photos").default([]),
+  amount: decimal("amount", { precision: 10, scale: 2 }),
+  status: text("status").default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  quoteId: varchar("quote_id").references(() => quotes.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  description: text("description").notNull(),
+  status: text("status").default("unpaid"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertServiceSchema = createInsertSchema(services).omit({
+  id: true,
+});
+
+export const insertBookingSchema = createInsertSchema(bookings).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+export const insertQuoteSchema = createInsertSchema(quotes).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const loginSchema = z.object({
+  email: z.string().email("Email invalide"),
+  password: z.string().min(6, "Le mot de passe doit faire au moins 6 caractères"),
+});
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Service = typeof services.$inferSelect;
+export type InsertService = z.infer<typeof insertServiceSchema>;
+export type Booking = typeof bookings.$inferSelect;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type Quote = typeof quotes.$inferSelect;
+export type InsertQuote = z.infer<typeof insertQuoteSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type LoginData = z.infer<typeof loginSchema>;
