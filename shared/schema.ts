@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   phone: text("phone"),
+  role: text("role").default("client"), // client, admin, employee
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -57,6 +58,36 @@ export const invoices = pgTable("invoices", {
   description: text("description").notNull(),
   status: text("status").default("unpaid"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(), // booking, quote, invoice, work_progress
+  relatedId: varchar("related_id"), // ID of related booking/quote/invoice
+  read: boolean("read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const workProgress = pgTable("work_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  status: text("status").notNull(), // received, in_progress, quality_check, completed, ready_for_pickup
+  description: text("description").notNull(),
+  photos: jsonb("photos").default([]),
+  estimatedCompletion: timestamp("estimated_completion"),
+  updatedBy: varchar("updated_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const adminSettings = pgTable("admin_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
