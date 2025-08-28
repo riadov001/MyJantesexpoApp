@@ -38,11 +38,6 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - ios_signing
-    ios_signing:
-      distribution_type: app_store
-      bundle_identifier: com.myjantes.app
     cache:
       cache_paths:
         - ~/.pub-cache
