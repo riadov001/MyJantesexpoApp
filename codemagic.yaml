@@ -1,0 +1,66 @@
+workflows:
+  build-android:
+    name: Build Android APK
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        - android_signing
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - build/
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: '*'
+          include: true
+    scripts:
+      - name: Install dependencies
+        script: flutter pub get
+      - name: Analyze code
+        script: flutter analyze
+      - name: Run unit tests
+        script: flutter test
+      - name: Build Android Release APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+
+  build-ios:
+    name: Build iOS IPA
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - ios_signing
+    ios_signing:
+      distribution_type: app_store
+      bundle_identifier: com.myjantes.app
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - build/
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: '*'
+          include: true
+    scripts:
+      - name: Install dependencies
+        script: flutter pub get
+      - name: Analyze code
+        script: flutter analyze
+      - name: Run unit tests
+        script: flutter test
+      - name: Build iOS IPA
+        script: flutter build ipa --release --export-options-plist=ExportOptions.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
