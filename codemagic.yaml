@@ -1,61 +1,46 @@
 workflows:
   build-android:
-    name: Build Android APK
+    name: Build Android APK (React Native)
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      flutter: stable
+      node: latest
       java: 17
+      npm: latest
       groups:
         - android_signing
     cache:
       cache_paths:
-        - ~/.pub-cache
-        - build/
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: '*'
-          include: true
+        - $HOME/.npm
+        - android/.gradle
     scripts:
       - name: Install dependencies
-        script: flutter pub get
-      - name: Analyze code
-        script: flutter analyze
-      - name: Run unit tests
-        script: flutter test
+        script: npm install
+      - name: Install Android dependencies
+        script: cd android && ./gradlew dependencies && cd ..
       - name: Build Android Release APK
-        script: flutter build apk --release
+        script: cd android && ./gradlew assembleRelease && cd ..
     artifacts:
-      - build/app/outputs/flutter-apk/app-release.apk
+      - android/app/build/outputs/**/*.apk
 
   build-ios:
-    name: Build iOS IPA
+    name: Build iOS IPA (React Native)
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      flutter: stable
-      xcode: latest
+      node: latest
+      npm: latest
       cocoapods: default
+      groups:
+        - ios_signing
     cache:
       cache_paths:
-        - ~/.pub-cache
-        - build/
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: '*'
-          include: true
+        - $HOME/.npm
+        - ios/Pods
     scripts:
       - name: Install dependencies
-        script: flutter pub get
-      - name: Analyze code
-        script: flutter analyze
-      - name: Run unit tests
-        script: flutter test
-      - name: Build iOS IPA
-        script: flutter build ipa --release --export-options-plist=ExportOptions.plist
-    artifacts:
-      - build/ios/ipa/*.ipa
+        script: npm install
+      - name: Install CocoaPods
+        script: cd ios && pod install && cd ..
+      - name: Build iOS Release IPA
+        script: cd ios && xcodebuild -workspace MyJantesexpoApp.xcworkspace -scheme MyJantesexpoApp -configuration Release -archivePath $
