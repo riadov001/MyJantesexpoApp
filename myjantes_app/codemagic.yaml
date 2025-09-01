@@ -1,0 +1,342 @@
+# CodeMagic CI/CD configuration for MyJantes Flutter app
+# This configuration will build both Android APK/AAB and iOS IPA files
+
+workflows:
+  android-build:
+    name: Android Build
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      android_signing:
+        - android_keystore
+      groups:
+        - android_credentials
+      vars:
+        PACKAGE_NAME: "com.myjantes.app"
+        GOOGLE_PLAY_TRACK: "internal"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+        - $HOME/Library/Caches/CocoaPods
+    
+    triggering:
+      events:
+        - push
+        - tag
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+        - pattern: 'develop'
+          include: true
+          source: true
+        - pattern: 'release/*'
+          include: true
+          source: true
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+    
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+      
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      
+      - name: Flutter test
+        script: |
+          flutter test
+        ignore_failure: true
+      
+      - name: Set Android version
+        script: |
+          # Extract version from pubspec.yaml
+          VERSION_NAME=$(grep "version:" pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          VERSION_CODE=$(grep "version:" pubspec.yaml | cut -d'+' -f2)
+          
+          # If no version code, use build number
+          if [ -z "$VERSION_CODE" ]; then
+            VERSION_CODE=$BUILD_NUMBER
+          fi
+          
+          echo "VERSION_NAME=$VERSION_NAME" >> $CM_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $CM_ENV
+      
+      - name: Build Android APK
+        script: |
+          flutter build apk --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE
+      
+      - name: Build Android App Bundle (AAB)
+        script: |
+          flutter build appbundle --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE
+    
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
+      - flutter_drive.log
+    
+    publishing:
+      email:
+        recipients:
+          - admin@myjantes.com
+        notify:
+          success: true
+          failure: true
+      
+      # Uncomment to publish to Google Play
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: $GOOGLE_PLAY_TRACK
+      #   submit_as_draft: true
+
+  ios-build:
+    name: iOS Build
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.myjantes.app
+      groups:
+        - ios_credentials
+        - app_store_credentials
+      vars:
+        BUNDLE_ID: "com.myjantes.app"
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
+        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+    
+    triggering:
+      events:
+        - push
+        - tag
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+        - pattern: 'release/*'
+          include: true
+          source: true
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+    
+    scripts:
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      
+      - name: Install CocoaPods
+        script: |
+          cd ios && pod install
+      
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      
+      - name: Flutter test
+        script: |
+          flutter test
+        ignore_failure: true
+      
+      - name: Set iOS version
+        script: |
+          # Extract version from pubspec.yaml
+          VERSION_NAME=$(grep "version:" pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          VERSION_CODE=$(grep "version:" pubspec.yaml | cut -d'+' -f2)
+          
+          # If no version code, use build number
+          if [ -z "$VERSION_CODE" ]; then
+            VERSION_CODE=$BUILD_NUMBER
+          fi
+          
+          echo "VERSION_NAME=$VERSION_NAME" >> $CM_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $CM_ENV
+      
+      - name: Build iOS
+        script: |
+          flutter build ios --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE
+      
+      - name: Build iOS IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/$XCODE_WORKSPACE \
+            --scheme $XCODE_SCHEME \
+            --archive-flags "-destination 'generic/platform=iOS'"
+    
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    
+    publishing:
+      email:
+        recipients:
+          - admin@myjantes.com
+        notify:
+          success: true
+          failure: true
+      
+      # Uncomment to publish to App Store
+      # app_store_connect:
+      #   auth: integration
+      #   submit_to_testflight: true
+      #   beta_review_info:
+      #     contact_email: admin@myjantes.com
+      #     contact_first_name: MyJantes
+      #     contact_last_name: Team
+      #     contact_phone: "+33123456789"
+      #     demo_account_name: demo@myjantes.com
+      #     demo_account_password: DemoPass123
+      #     notes: |
+      #       MyJantes est une application de gestion de services automobiles.
+      #       Cette version inclut la gestion des réservations, devis et factures.
+
+  # Combined workflow for both platforms
+  multi-platform-build:
+    name: Build Android & iOS
+    instance_type: mac_mini_m1
+    max_build_duration: 90
+    environment:
+      android_signing:
+        - android_keystore
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.myjantes.app
+      groups:
+        - android_credentials
+        - ios_credentials
+        - app_store_credentials
+      vars:
+        PACKAGE_NAME: "com.myjantes.app"
+        BUNDLE_ID: "com.myjantes.app"
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+        - $HOME/Library/Caches/CocoaPods
+    
+    triggering:
+      events:
+        - push
+        - tag
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+        - pattern: 'release/*'
+          include: true
+          source: true
+      tag_patterns:
+        - pattern: 'v*.*.*'
+          include: true
+    
+    scripts:
+      - name: Set up local.properties for Android
+        script: |
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+      
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      
+      - name: Install CocoaPods
+        script: |
+          cd ios && pod install
+      
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      
+      - name: Flutter test
+        script: |
+          flutter test
+        ignore_failure: true
+      
+      - name: Set version numbers
+        script: |
+          VERSION_NAME=$(grep "version:" pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          VERSION_CODE=$(grep "version:" pubspec.yaml | cut -d'+' -f2)
+          
+          if [ -z "$VERSION_CODE" ]; then
+            VERSION_CODE=$BUILD_NUMBER
+          fi
+          
+          echo "VERSION_NAME=$VERSION_NAME" >> $CM_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $CM_ENV
+          
+          echo "Building version $VERSION_NAME ($VERSION_CODE)"
+      
+      - name: Build Android APK
+        script: |
+          echo "Building Android APK..."
+          flutter build apk --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE
+      
+      - name: Build Android App Bundle
+        script: |
+          echo "Building Android App Bundle..."
+          flutter build appbundle --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE
+      
+      - name: Build iOS
+        script: |
+          echo "Building iOS..."
+          flutter build ios --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE
+      
+      - name: Build iOS IPA
+        script: |
+          echo "Building iOS IPA..."
+          xcode-project build-ipa \
+            --workspace ios/$XCODE_WORKSPACE \
+            --scheme $XCODE_SCHEME \
+            --archive-flags "-destination 'generic/platform=iOS'"
+    
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    
+    publishing:
+      email:
+        recipients:
+          - admin@myjantes.com
+        notify:
+          success: true
+          failure: true
