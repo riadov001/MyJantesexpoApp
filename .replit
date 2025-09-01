@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["flutter"]
+packages = ["flutter", "unzip", "wget", "openjdk11"]
 
 [deployment]
 deploymentTarget = "autoscale"
