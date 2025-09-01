@@ -483,6 +483,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/users", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Un utilisateur avec cet email existe déjà" });
+      }
+
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const user = await storage.createUser({
+        ...userData,
+        password: hashedPassword,
+      });
+      
+      res.status(201).json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        createdAt: user.createdAt,
+      });
+    } catch (error) {
+      res.status(400).json({ message: "Erreur lors de la création de l'utilisateur" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      const currentUserId = req.user.userId;
+      
+      // Prevent admin from deleting themselves
+      if (userId === currentUserId) {
+        return res.status(400).json({ message: "Vous ne pouvez pas vous supprimer vous-même" });
+      }
+      
+      await storage.deleteUser(userId);
+      res.json({ message: "Utilisateur supprimé avec succès" });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la suppression de l'utilisateur" });
+    }
+  });
+
   app.post("/api/work-progress", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const progressData = insertWorkProgressSchema.parse({

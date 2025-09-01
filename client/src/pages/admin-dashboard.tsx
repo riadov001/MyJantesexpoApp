@@ -167,6 +167,17 @@ export default function AdminDashboard() {
                 </span>
               )}
             </Link>
+            
+            <Link
+              href="/admin/users"
+              className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
+              data-testid="button-manage-users"
+            >
+              <div className="flex items-center space-x-3">
+                <Users className="text-primary" size={20} />
+                <span>Gérer les utilisateurs</span>
+              </div>
+            </Link>
           </div>
         </div>
 
