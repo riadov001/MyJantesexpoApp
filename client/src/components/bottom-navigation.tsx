@@ -1,18 +1,35 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Home, Cog, Calendar, FileText, User, Bell } from "lucide-react";
+import { Home, Cog, Calendar, FileText, User, Bell, Settings } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 
-const navItems = [
-  { path: "/services", icon: Cog, label: "Services", testId: "tab-services" },
-  { path: "/booking", icon: Calendar, label: "Réserver", testId: "tab-booking" },
-  { path: "/", icon: Home, label: "Accueil", testId: "tab-home" },
-  { path: "/notifications", icon: Bell, label: "Notifs", testId: "tab-notifications" },
-  { path: "/profile", icon: User, label: "Profil", testId: "tab-profile" },
-];
+const getNavItems = (isAdmin: boolean) => {
+  const baseItems = [
+    { path: "/services", icon: Cog, label: "Services", testId: "tab-services" },
+    { path: "/booking", icon: Calendar, label: "Réserver", testId: "tab-booking" },
+    { path: "/", icon: Home, label: "Accueil", testId: "tab-home" },
+  ];
+  
+  if (isAdmin) {
+    return [
+      ...baseItems,
+      { path: "/admin", icon: Settings, label: "Admin", testId: "tab-admin", isAdmin: true },
+      { path: "/notifications", icon: Bell, label: "Notifs", testId: "tab-notifications" },
+    ];
+  }
+  
+  return [
+    ...baseItems,
+    { path: "/notifications", icon: Bell, label: "Notifs", testId: "tab-notifications" },
+    { path: "/profile", icon: User, label: "Profil", testId: "tab-profile" },
+  ];
+};
 
 export default function BottomNavigation() {
   const [location, setLocation] = useLocation();
+  const user = AuthService.getUser();
+  const isAdmin = user?.role === "admin";
+  const navItems = getNavItems(isAdmin);
   
   const { data: unreadCount } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
