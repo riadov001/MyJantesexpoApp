@@ -1,18 +1,35 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Home, Cog, Calendar, FileText, User, Bell } from "lucide-react";
+import { Home, Cog, Calendar, FileText, User, Bell, Settings } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 
-const navItems = [
-  { path: "/services", icon: Cog, label: "Services", testId: "tab-services" },
-  { path: "/booking", icon: Calendar, label: "Réserver", testId: "tab-booking" },
-  { path: "/", icon: Home, label: "Accueil", testId: "tab-home" },
-  { path: "/notifications", icon: Bell, label: "Notifs", testId: "tab-notifications" },
-  { path: "/profile", icon: User, label: "Profil", testId: "tab-profile" },
-];
+const getNavItems = (isAdmin: boolean) => {
+  const baseItems = [
+    { path: "/services", icon: Cog, label: "Services", testId: "tab-services" },
+    { path: "/booking", icon: Calendar, label: "Réserver", testId: "tab-booking" },
+    { path: "/", icon: Home, label: "Accueil", testId: "tab-home" },
+  ];
+  
+  if (isAdmin) {
+    return [
+      ...baseItems,
+      { path: "/admin", icon: Settings, label: "Admin", testId: "tab-admin", isAdmin: true },
+      { path: "/notifications", icon: Bell, label: "Notifs", testId: "tab-notifications" },
+    ];
+  }
+  
+  return [
+    ...baseItems,
+    { path: "/notifications", icon: Bell, label: "Notifs", testId: "tab-notifications" },
+    { path: "/profile", icon: User, label: "Profil", testId: "tab-profile" },
+  ];
+};
 
 export default function BottomNavigation() {
   const [location, setLocation] = useLocation();
+  const user = AuthService.getUser();
+  const isAdmin = user?.role === "admin";
+  const navItems = getNavItems(isAdmin);
   
   const { data: unreadCount } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
@@ -31,15 +48,16 @@ export default function BottomNavigation() {
     <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm bg-card border-t border-border ios-blur">
       <div className="flex items-center justify-around py-2 px-6">
         {navItems.map((item) => {
-          const isActive = location === item.path;
+          const isActive = location === item.path || (item.path === "/admin" && location.startsWith("/admin"));
           const isNotificationTab = item.path === "/notifications";
           const hasUnreadNotifications = unreadCount?.count > 0;
+          const isAdminTab = item.isAdmin;
           
           return (
             <button
               key={item.path}
               className={`flex flex-col items-center py-2 space-y-1 relative ${
-                isActive ? "text-primary" : "text-muted-foreground"
+                isActive ? (isAdminTab ? "text-red-400" : "text-primary") : "text-muted-foreground"
               }`}
               onClick={() => setLocation(item.path)}
               data-testid={item.testId}
@@ -52,6 +70,9 @@ export default function BottomNavigation() {
                       {unreadCount.count > 9 ? "9+" : unreadCount.count}
                     </span>
                   </div>
+                )}
+                {isAdminTab && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
                 )}
               </div>
               <span className="text-xs">{item.label}</span>

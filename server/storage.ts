@@ -204,12 +204,21 @@ export class DatabaseStorage implements IStorage {
     return invoice || undefined;
   }
 
-  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
-    const [newInvoice] = await db
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const [invoice] = await db
       .insert(invoices)
-      .values(invoice)
+      .values(insertInvoice)
       .returning();
-    return newInvoice;
+    return invoice;
+  }
+
+  async updateInvoice(id: string, data: Partial<Invoice>): Promise<Invoice | undefined> {
+    const [updatedInvoice] = await db
+      .update(invoices)
+      .set(data)
+      .where(eq(invoices.id, id))
+      .returning();
+    return updatedInvoice || undefined;
   }
 
   async updateInvoiceStatus(id: string, status: string): Promise<Invoice | undefined> {
@@ -219,6 +228,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(invoices.id, id))
       .returning();
     return updatedInvoice || undefined;
+  }
+
+  async deleteInvoice(id: string): Promise<void> {
+    await db.delete(invoices).where(eq(invoices.id, id));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
   }
 
   // Notifications

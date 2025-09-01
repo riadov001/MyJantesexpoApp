@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import { Card } from "@/components/ui/card";
+import { Link } from "wouter";
 import { BarChart3, Users, FileText, DollarSign, Clock, AlertCircle } from "lucide-react";
 
 interface DashboardStats {
@@ -119,7 +120,8 @@ export default function AdminDashboard() {
         <div className="ios-card">
           <h3 className="font-semibold mb-4">Actions rapides</h3>
           <div className="space-y-3">
-            <button 
+<Link 
+              href="/admin/bookings"
               className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
               data-testid="button-manage-bookings"
             >
@@ -132,9 +134,10 @@ export default function AdminDashboard() {
                   {stats?.pendingBookings}
                 </span>
               )}
-            </button>
+            </Link>
             
-            <button 
+            <Link
+              href="/admin/quotes" 
               className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
               data-testid="button-manage-quotes"
             >
@@ -147,9 +150,10 @@ export default function AdminDashboard() {
                   {stats?.pendingQuotes}
                 </span>
               )}
-            </button>
+            </Link>
             
-            <button 
+            <Link
+              href="/admin/invoices"
               className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
               data-testid="button-manage-invoices"
             >
@@ -162,7 +166,7 @@ export default function AdminDashboard() {
                   {stats?.unpaidInvoices}
                 </span>
               )}
-            </button>
+            </Link>
           </div>
         </div>
 

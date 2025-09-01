@@ -392,6 +392,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/invoices", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId, amount, description, quoteId } = req.body;
+      const invoice = await storage.createInvoice({ userId, amount, description, quoteId });
+      
+      // Create notification for user
+      await storage.createNotification({
+        userId: invoice.userId,
+        title: "Nouvelle facture",
+        message: `Une facture de ${amount}€ a été créée`,
+        type: "invoice",
+        relatedId: invoice.id,
+      });
+      
+      res.status(201).json(invoice);
+    } catch (error) {
+      res.status(400).json({ message: "Erreur lors de la création de la facture" });
+    }
+  });
+
+  app.post("/api/admin/invoices/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoice = await storage.updateInvoice(req.params.id, req.body);
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la modification de la facture" });
+    }
+  });
+
+  app.post("/api/admin/invoices/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { status } = req.body;
+      const invoice = await storage.updateInvoiceStatus(req.params.id, status);
+      
+      // Create notification for user
+      if (invoice) {
+        await storage.createNotification({
+          userId: invoice.userId,
+          title: "Statut de facture mis à jour",
+          message: `Votre facture est maintenant : ${status}`,
+          type: "invoice",
+          relatedId: invoice.id,
+        });
+      }
+      
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
+    }
+  });
+
+  app.delete("/api/admin/invoices/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      await storage.deleteInvoice(req.params.id);
+      res.json({ message: "Facture supprimée avec succès" });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la suppression de la facture" });
+    }
+  });
+
+  app.post("/api/admin/invoices/:id/notify", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { comment } = req.body;
+      const invoice = await storage.getInvoice(req.params.id);
+      
+      if (invoice) {
+        await storage.createNotification({
+          userId: invoice.userId,
+          title: "Message administrateur",
+          message: comment || "L'administrateur a envoyé un message concernant votre facture",
+          type: "invoice",
+          relatedId: invoice.id,
+        });
+      }
+      
+      res.json({ message: "Notification envoyée avec succès" });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de l'envoi de la notification" });
+    }
+  });
+
+  app.get("/api/admin/users", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des utilisateurs" });
+    }
+  });
+
   app.post("/api/work-progress", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const progressData = insertWorkProgressSchema.parse({
