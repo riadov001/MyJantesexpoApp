@@ -1,0 +1,23 @@
+# Configuration de signature Android pour MyJantes
+# RENOMMER ce fichier en 'key.properties' et compléter avec vos vraies valeurs
+
+# Mot de passe du keystore (même que lors de la création)
+storePassword=VOTRE_STORE_PASSWORD_ICI
+
+# Mot de passe de la clé (peut être le même que storePassword)
+keyPassword=VOTRE_KEY_PASSWORD_ICI
+
+# Alias de la clé (recommandé: 'upload' ou 'myjantes')
+keyAlias=upload
+
+# Nom du fichier keystore (doit être dans le dossier android/app/)
+storeFile=upload-keystore.jks
+
+# =========================================
+# INSTRUCTIONS :
+# =========================================
+# 1. Renommer ce fichier en 'key.properties'
+# 2. Remplacer les valeurs par vos vraies informations
+# 3. S'assurer que le fichier keystore existe dans android/app/
+# 4. NE PAS committer ce fichier (déjà dans .gitignore)
+# =========================================
