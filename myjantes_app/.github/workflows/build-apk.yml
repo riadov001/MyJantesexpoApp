@@ -1,0 +1,70 @@
+name: 🚀 Build MyJantes APK
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: 📱 Build Android APK
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: ☕ Setup Java 11
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '11'
+        
+    - name: 🐦 Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.22.0'
+        cache: true
+        
+    - name: 📦 Get Dependencies
+      run: |
+        cd myjantes_app
+        flutter pub get
+        
+    - name: 🔍 Run Flutter Analyze
+      run: |
+        cd myjantes_app
+        flutter analyze
+      continue-on-error: true
+        
+    - name: 🧪 Run Tests
+      run: |
+        cd myjantes_app
+        flutter test
+      continue-on-error: true
+        
+    - name: 🔨 Build Debug APK
+      run: |
+        cd myjantes_app
+        flutter build apk --debug --verbose
+        
+    - name: 📊 APK Info
+      run: |
+        cd myjantes_app
+        ls -la build/app/outputs/flutter-apk/
+        file build/app/outputs/flutter-apk/app-debug.apk
+        
+    - name: 📤 Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MyJantes-Debug-APK-${{ github.run_number }}
+        path: myjantes_app/build/app/outputs/flutter-apk/app-debug.apk
+        retention-days: 30
+        
+    - name: 📝 APK Details
+      run: |
+        echo "✅ APK Build Completed!"
+        echo "📱 File: app-debug.apk" 
+        echo "🎯 Download from Actions tab → Artifacts"
+        echo "📊 Build #${{ github.run_number }}"
