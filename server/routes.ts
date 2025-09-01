@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertNotificationSchema, insertWorkProgressSchema, loginSchema } from "@shared/schema";
+import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertInvoiceSchema, insertNotificationSchema, insertWorkProgressSchema, loginSchema } from "@shared/schema";
+import { z } from "zod";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
@@ -395,20 +396,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/invoices", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
-      const { userId, amount, description, quoteId } = req.body;
-      const invoice = await storage.createInvoice({ userId, amount, description, quoteId });
+      const invoiceData = {
+        userId: req.body.userId,
+        amount: req.body.amount,
+        description: req.body.description,
+        quoteId: req.body.quoteId || null,
+      };
+      
+      const validatedData = insertInvoiceSchema.parse(invoiceData);
+      const invoice = await storage.createInvoice(validatedData);
       
       // Create notification for user
       await storage.createNotification({
         userId: invoice.userId,
         title: "Nouvelle facture",
-        message: `Une facture de ${amount}€ a été créée`,
+        message: `Une facture de ${invoice.amount}€ a été créée`,
         type: "invoice",
         relatedId: invoice.id,
       });
       
       res.status(201).json(invoice);
     } catch (error) {
+      console.error("Error creating invoice:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données de facture invalides", errors: error.errors });
+      }
       res.status(400).json({ message: "Erreur lors de la création de la facture" });
     }
   });
