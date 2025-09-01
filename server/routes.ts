@@ -54,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Email ou mot de passe incorrect" });
       }
 
-      const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+      const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
       
       res.json({ 
         token, 
@@ -62,7 +62,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id, 
           email: user.email, 
           name: user.name, 
-          phone: user.phone 
+          phone: user.phone,
+          role: user.role
         } 
       });
     } catch (error) {
