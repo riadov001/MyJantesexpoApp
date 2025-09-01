@@ -7,6 +7,7 @@ workflows:
     name: "Android Test Build"
     instance_type: mac_mini_m1
     max_build_duration: 30
+    working_directory: myjantes_app
     environment:
       flutter: stable
       vars:
@@ -38,7 +39,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - admin@myjantes.com  # ⚠️ Remplacer par votre email
+          - rbelmahi90@gmail.com # ⚠️ Remplacer par votre email
         notify:
           success: true
           failure: true
@@ -48,6 +49,7 @@ workflows:
     name: "Android Production Build"
     instance_type: mac_mini_m1
     max_build_duration: 45
+    working_directory: myjantes_app
     environment:
       android_signing:
         - keystore_reference  # Référence au keystore uploadé dans CodeMagic
@@ -91,7 +93,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - admin@myjantes.com  # ⚠️ Remplacer par votre email
+          - rbelmahi90@gmail.com # ⚠️ Remplacer par votre email
         notify:
           success: true
           failure: true
@@ -101,6 +103,7 @@ workflows:
     name: "iOS Production Build"  
     instance_type: mac_mini_m1
     max_build_duration: 60
+    working_directory: myjantes_app
     environment:
       ios_signing:
         distribution_type: app_store
@@ -145,7 +148,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - admin@myjantes.com  # ⚠️ Remplacer par votre email
+          - rbelmahi90@gmail.com # ⚠️ Remplacer par votre email
         notify:
           success: true
           failure: true

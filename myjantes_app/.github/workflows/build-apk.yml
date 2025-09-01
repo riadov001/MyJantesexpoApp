@@ -28,30 +28,26 @@ jobs:
         cache: true
         
     - name: 📦 Get Dependencies
-      run: |
-        cd myjantes_app
-        flutter pub get
+      working-directory: myjantes_app
+      run: flutter pub get
         
     - name: 🔍 Run Flutter Analyze
-      run: |
-        cd myjantes_app
-        flutter analyze
+      working-directory: myjantes_app
+      run: flutter analyze
       continue-on-error: true
         
     - name: 🧪 Run Tests
-      run: |
-        cd myjantes_app
-        flutter test
+      working-directory: myjantes_app
+      run: flutter test
       continue-on-error: true
         
     - name: 🔨 Build Debug APK
-      run: |
-        cd myjantes_app
-        flutter build apk --debug --verbose
+      working-directory: myjantes_app
+      run: flutter build apk --debug --verbose
         
     - name: 📊 APK Info
+      working-directory: myjantes_app
       run: |
-        cd myjantes_app
         ls -la build/app/outputs/flutter-apk/
         file build/app/outputs/flutter-apk/app-debug.apk
         
