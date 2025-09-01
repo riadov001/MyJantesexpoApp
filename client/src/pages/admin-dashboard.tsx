@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import { Card } from "@/components/ui/card";
+import { Link } from "wouter";
 import { BarChart3, Users, FileText, DollarSign, Clock, AlertCircle } from "lucide-react";
 
 interface DashboardStats {
