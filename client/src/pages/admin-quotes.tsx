@@ -118,11 +118,11 @@ export default function AdminQuotes() {
                     {quote.description}
                   </span>
                 </div>
-                {quote.photos && Array.isArray(quote.photos) && quote.photos.length > 0 && (
+                {quote.photos && Array.isArray(quote.photos) && (quote.photos as any[]).length > 0 && (
                   <div className="flex items-center space-x-2 mb-2">
                     <Image className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm">
-                      {quote.photos.length} photo{quote.photos.length > 1 ? 's' : ''} jointe{quote.photos.length > 1 ? 's' : ''}
+                      {(quote.photos as any[]).length} photo{(quote.photos as any[]).length > 1 ? 's' : ''} jointe{(quote.photos as any[]).length > 1 ? 's' : ''}
                     </span>
                   </div>
                 )}

@@ -155,7 +155,7 @@ export default function AdminBookings() {
 
             <div className="mt-3 text-xs text-muted-foreground">
               <Clock className="w-3 h-3 inline mr-1" />
-              Créée le {formatDate(booking.createdAt!)}
+              Créée le {formatDate(booking.createdAt?.toString() || '')}
             </div>
           </div>
         ))}
