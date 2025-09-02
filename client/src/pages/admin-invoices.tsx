@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiDelete, apiPut } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera, Smartphone } from "lucide-react";
 import type { Invoice } from "@shared/schema";
+import PhotoPicker from "@/components/photo-picker";
 
 interface CreateInvoiceData {
   userId: string;
@@ -53,6 +54,11 @@ export default function AdminInvoices() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
+  const [isPhotosModalOpen, setIsPhotosModalOpen] = useState(false);
+  const [selectedInvoiceForPhotos, setSelectedInvoiceForPhotos] = useState<Invoice | null>(null);
+  const [photosBefore, setPhotosBefore] = useState<string[]>([]);
+  const [photosAfter, setPhotosAfter] = useState<string[]>([]);
+  const [photosWorkDetails, setPhotosWorkDetails] = useState("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -185,6 +191,23 @@ MyJantes`;
     },
   });
 
+  const updatePhotosMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { photosBefore: string[]; photosAfter: string[]; workDetails?: string } }) =>
+      apiPut(`/api/admin/invoices/${id}/photos`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
+      toast({ title: "Photos mises à jour", description: "Les photos ont été sauvegardées avec succès." });
+      setIsPhotosModalOpen(false);
+      setSelectedInvoiceForPhotos(null);
+      setPhotosBefore([]);
+      setPhotosAfter([]);
+      setPhotosWorkDetails("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    },
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "paid":
@@ -213,6 +236,27 @@ MyJantes`;
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("fr-FR", {
       day: "numeric", month: "long", year: "numeric",
+    });
+  };
+
+  const openPhotosModal = (invoice: Invoice) => {
+    setSelectedInvoiceForPhotos(invoice);
+    setPhotosBefore((invoice.photosBefore as string[]) || []);
+    setPhotosAfter((invoice.photosAfter as string[]) || []);
+    setPhotosWorkDetails(invoice.workDetails || "");
+    setIsPhotosModalOpen(true);
+  };
+
+  const handleSavePhotos = () => {
+    if (!selectedInvoiceForPhotos) return;
+    
+    updatePhotosMutation.mutate({
+      id: selectedInvoiceForPhotos.id,
+      data: {
+        photosBefore,
+        photosAfter,
+        workDetails: photosWorkDetails
+      }
     });
   };
 
@@ -256,7 +300,7 @@ MyJantes`;
                       <SelectValue placeholder="Sélectionner un client" />
                     </SelectTrigger>
                     <SelectContent>
-                      {users?.map((user: any) => (
+                      {(users as any[])?.map((user: any) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.name} ({user.email})
                           {user.clientType === "professionnel" && user.companyName && (
@@ -475,7 +519,7 @@ MyJantes`;
       </div>
 
       <div className="px-6 py-6 space-y-4">
-        {invoices?.map((invoice) => (
+        {(invoices as Invoice[])?.map((invoice: Invoice) => (
           <div key={invoice.id} className="ios-card" data-testid={`invoice-${invoice.id}`}>
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
@@ -568,6 +612,23 @@ MyJantes`;
                     <p>{openMobileEmailMutation.isPending ? "Ouverture..." : "Email Mobile"}</p>
                   </TooltipContent>
                 </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => openPhotosModal(invoice)}
+                      data-testid={`button-photos-${invoice.id}`}
+                      className="h-12 w-12 bg-purple-50 hover:bg-purple-100"
+                    >
+                      <Camera className="w-5 h-5 text-purple-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Photos intervention</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               
               {/* Ligne 3: Actions secondaires */}
@@ -642,7 +703,7 @@ MyJantes`;
           </div>
         ))}
 
-        {!invoices.length && (
+        {!(invoices as Invoice[]).length && (
           <div className="ios-card text-center py-8">
             <FileText className="text-muted-foreground mx-auto mb-4" size={48} />
             <p className="text-muted-foreground">Aucune facture trouvée</p>
@@ -711,6 +772,74 @@ MyJantes`;
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Photos avant/après intervention */}
+      <Dialog open={isPhotosModalOpen} onOpenChange={setIsPhotosModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Photos de l'intervention - {selectedInvoiceForPhotos?.description}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Photos avant intervention */}
+            <div>
+              <h3 className="text-lg font-medium mb-4 text-red-600 flex items-center">
+                <Camera className="w-5 h-5 mr-2" />
+                Photos avant intervention
+              </h3>
+              <PhotoPicker
+                selectedPhotos={photosBefore}
+                onPhotosChange={setPhotosBefore}
+              />
+            </div>
+
+            {/* Photos après intervention */}
+            <div>
+              <h3 className="text-lg font-medium mb-4 text-green-600 flex items-center">
+                <Camera className="w-5 h-5 mr-2" />
+                Photos après intervention
+              </h3>
+              <PhotoPicker
+                selectedPhotos={photosAfter}
+                onPhotosChange={setPhotosAfter}
+              />
+            </div>
+
+            {/* Détails du travail */}
+            <div>
+              <h3 className="text-lg font-medium mb-4 text-blue-600">Détails du travail effectué</h3>
+              <Textarea
+                placeholder="Décrivez les travaux effectués en détail..."
+                value={photosWorkDetails}
+                onChange={(e) => setPhotosWorkDetails(e.target.value)}
+                className="min-h-[100px]"
+                data-testid="textarea-work-details"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPhotosModalOpen(false)}
+                className="px-6"
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleSavePhotos}
+                disabled={updatePhotosMutation.isPending}
+                className="px-6 bg-purple-600 hover:bg-purple-700"
+                data-testid="button-save-photos"
+              >
+                {updatePhotosMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       </div>
