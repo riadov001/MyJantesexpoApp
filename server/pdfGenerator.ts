@@ -1,49 +1,52 @@
 // @ts-ignore
-import htmlPdf from 'html-pdf-node';
-import path from 'path';
-import fs from 'fs';
+import htmlPdf from "html-pdf-node";
+import path from "path";
+import fs from "fs";
 
 interface InvoiceData {
-  id: string;
-  userId: string;
-  amount: string;
-  description: string;
-  workDetails?: string | null;
-  photosBefore?: string[] | null;
-  photosAfter?: string[] | null;
-  status: string;
-  createdAt: string;
-  subtotal?: string;
-  vat?: string;
-  total?: string;
-  user?: {
-    name: string;
-    email: string;
-    phone: string;
-    address?: string;
-  };
+    id: string;
+    userId: string;
+    amount: string;
+    description: string;
+    workDetails?: string | null;
+    photosBefore?: string[] | null;
+    photosAfter?: string[] | null;
+    status: string;
+    createdAt: string;
+    subtotal?: string;
+    vat?: string;
+    total?: string;
+    user?: {
+        name: string;
+        email: string;
+        phone: string;
+        address?: string;
+    };
 }
 
 export class PDFGenerator {
-  async generateInvoicePDF(invoice: any): Promise<Buffer> {
-    try {
-      const html = this.generateInvoiceHTML(invoice);
-      
-      // Toujours utiliser le PDF fallback pour assurer la compatibilité
-      return this.generateAdvancedPDF(invoice, html);
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      // Fallback vers simple PDF en cas d'erreur
-      return this.generateSimplePDF(invoice);
-    }
-  }
+    async generateInvoicePDF(invoice: any): Promise<Buffer> {
+        try {
+            const html = this.generateInvoiceHTML(invoice);
 
-  private generateAdvancedPDF(invoice: any, html: string): Buffer {
-    // Pour maintenant, créer un PDF professionnel en mode texte
-    const subtotal = invoice.subtotal || (parseFloat(invoice.amount) / 1.20).toFixed(2);
-    const vatAmount = invoice.vat || (parseFloat(invoice.amount) - parseFloat(subtotal)).toFixed(2);
-    
-    const pdfContent = `%PDF-1.4
+            // Toujours utiliser le PDF fallback pour assurer la compatibilité
+            return this.generateAdvancedPDF(invoice, html);
+        } catch (error) {
+            console.error("PDF generation error:", error);
+            // Fallback vers simple PDF en cas d'erreur
+            return this.generateSimplePDF(invoice);
+        }
+    }
+
+    private generateAdvancedPDF(invoice: any, html: string): Buffer {
+        // Pour maintenant, créer un PDF professionnel en mode texte
+        const subtotal =
+            invoice.subtotal || (parseFloat(invoice.amount) / 1.2).toFixed(2);
+        const vatAmount =
+            invoice.vat ||
+            (parseFloat(invoice.amount) - parseFloat(subtotal)).toFixed(2);
+
+        const pdfContent = `%PDF-1.4
 1 0 obj
 <<
 /Type /Catalog
@@ -98,14 +101,15 @@ stream
 BT
 /F1 20 Tf
 50 750 Td
-(MYJANTES) Tj
+(MY JANTES) Tj
 /F2 12 Tf
 0 -25 Td
-(Service professionnel de jantes et pneus) Tj
+(Service professionnel de jantes) Tj
 0 -15 Td
-(123 Rue de l'Automobile, 75001 Paris) Tj
+(SAS au capital variable - SIREN: 913 678 199) Tj
+(46 RUE DE LA CONVENTION, 62800 LIEVIN - TVA: FR73913678199) Tj
 0 -15 Td
-(Tel: +33 1 23 45 67 89 | Email: contact@myjantes.fr) Tj
+(Email: contact@myjantes.fr) Tj
 
 /F1 16 Tf
 0 -50 Td
@@ -113,20 +117,24 @@ BT
 
 /F2 10 Tf
 350 -5 Td
-(Date: ${new Date(invoice.createdAt).toLocaleDateString('fr-FR')}) Tj
+(Date: ${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}) Tj
 
 /F1 12 Tf
 -350 -40 Td
 (FACTURE ADRESSEE A:) Tj
 /F2 10 Tf
 0 -20 Td
-(${invoice.user?.name || 'Client'}) Tj
+(${invoice.user?.name || "Client"}) Tj
 0 -15 Td
-(${invoice.user?.email || ''}) Tj
+(${invoice.user?.email || ""}) Tj
 0 -15 Td
-(${invoice.user?.phone || ''}) Tj
-${invoice.user?.address ? `0 -15 Td
-(${invoice.user.address}) Tj` : ''}
+(${invoice.user?.phone || ""}) Tj
+${
+    invoice.user?.address
+        ? `0 -15 Td
+(${invoice.user.address}) Tj`
+        : ""
+}
 
 /F1 12 Tf
 0 -40 Td
@@ -134,8 +142,12 @@ ${invoice.user?.address ? `0 -15 Td
 /F2 10 Tf
 0 -20 Td
 (${invoice.description}) Tj
-${invoice.workDetails ? `0 -15 Td
-(Details: ${invoice.workDetails}) Tj` : ''}
+${
+    invoice.workDetails
+        ? `0 -15 Td
+(Details: ${invoice.workDetails}) Tj`
+        : ""
+}
 
 0 -30 Td
 (Sous-total HT: ${subtotal} EUR) Tj
@@ -147,7 +159,7 @@ ${invoice.workDetails ? `0 -15 Td
 
 /F2 10 Tf
 0 -30 Td
-(Statut: ${invoice.status === 'paid' ? 'PAYEE' : 'EN ATTENTE DE PAIEMENT'}) Tj
+(Statut: ${invoice.status === "paid" ? "PAYEE" : "EN ATTENTE DE PAIEMENT"}) Tj
 
 0 -40 Td
 (Conditions de paiement: 30 jours) Tj
@@ -175,23 +187,29 @@ startxref
 1691
 %%EOF`;
 
-    return Buffer.from(pdfContent, 'utf8');
-  }
+        return Buffer.from(pdfContent, "utf8");
+    }
 
-  private generateSimplePDF(invoice: any): Buffer {
-    return this.generateAdvancedPDF(invoice, '');
-  }
+    private generateSimplePDF(invoice: any): Buffer {
+        return this.generateAdvancedPDF(invoice, "");
+    }
 
-  private generateInvoiceHTML(invoice: any): string {
-    const logoPath = path.join(process.cwd(), 'client/src/assets/logo-myjantes.png');
-    const logoBase64 = fs.existsSync(logoPath) 
-      ? `data:image/png;base64,${fs.readFileSync(logoPath, 'base64')}`
-      : '';
+    private generateInvoiceHTML(invoice: any): string {
+        const logoPath = path.join(
+            process.cwd(),
+            "client/src/assets/logo-myjantes.png",
+        );
+        const logoBase64 = fs.existsSync(logoPath)
+            ? `data:image/png;base64,${fs.readFileSync(logoPath, "base64")}`
+            : "";
 
-    const subtotal = invoice.subtotal || (parseFloat(invoice.amount) / 1.20).toFixed(2);
-    const vatAmount = invoice.vat || (parseFloat(invoice.amount) - parseFloat(subtotal)).toFixed(2);
+        const subtotal =
+            invoice.subtotal || (parseFloat(invoice.amount) / 1.2).toFixed(2);
+        const vatAmount =
+            invoice.vat ||
+            (parseFloat(invoice.amount) - parseFloat(subtotal)).toFixed(2);
 
-    return `
+        return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -352,7 +370,7 @@ startxref
 <body>
     <div class="container">
         <div class="header">
-            ${logoBase64 ? `<img src="${logoBase64}" alt="MyJantes" class="logo">` : ''}
+            ${logoBase64 ? `<img src="${logoBase64}" alt="MyJantes" class="logo">` : ""}
             <div class="company-info">
                 <div class="company-name">MY JANTES</div>
                 <div><strong>46 RUE DE LA CONVENTION</strong></div>
@@ -373,27 +391,31 @@ startxref
         <div class="invoice-info">
             <div class="invoice-details">
                 <div class="detail-title">Détails de la facture</div>
-                <div class="detail-item"><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString('fr-FR')}</div>
+                <div class="detail-item"><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</div>
                 <div class="detail-item"><strong>Statut:</strong> 
                     <span class="status-badge status-${invoice.status}">
-                        ${invoice.status === 'paid' ? 'Payée' : invoice.status === 'unpaid' ? 'Impayée' : 'En attente'}
+                        ${invoice.status === "paid" ? "Payée" : invoice.status === "unpaid" ? "Impayée" : "En attente"}
                     </span>
                 </div>
             </div>
             <div class="client-details">
                 <div class="detail-title">Facturation à</div>
-                <div class="detail-item"><strong>${invoice.user?.name || 'Client'}</strong></div>
-                <div class="detail-item">${invoice.user?.email || ''}</div>
-                <div class="detail-item">${invoice.user?.phone || ''}</div>
+                <div class="detail-item"><strong>${invoice.user?.name || "Client"}</strong></div>
+                <div class="detail-item">${invoice.user?.email || ""}</div>
+                <div class="detail-item">${invoice.user?.phone || ""}</div>
             </div>
         </div>
 
-        ${invoice.workDetails ? `
+        ${
+            invoice.workDetails
+                ? `
         <div class="work-details">
             <h3>Détails des travaux</h3>
             <p>${invoice.workDetails}</p>
         </div>
-        ` : ''}
+        `
+                : ""
+        }
 
         <table class="services-table">
             <thead>
@@ -416,29 +438,49 @@ startxref
             </div>
         </div>
 
-        ${(invoice.photosBefore?.length || invoice.photosAfter?.length) ? `
+        ${
+            invoice.photosBefore?.length || invoice.photosAfter?.length
+                ? `
         <div class="photos-section">
             <h2 style="color: #dc2626; text-align: center;">Photos des travaux</h2>
             <div class="photos-grid">
-                ${invoice.photosBefore?.length ? `
+                ${
+                    invoice.photosBefore?.length
+                        ? `
                 <div class="photo-group">
                     <h3>Avant</h3>
-                    ${invoice.photosBefore.map(photo => `
+                    ${invoice.photosBefore
+                        .map(
+                            (photo) => `
                         <img src="${photo}" alt="Photo avant" class="photo">
-                    `).join('')}
+                    `,
+                        )
+                        .join("")}
                 </div>
-                ` : ''}
-                ${invoice.photosAfter?.length ? `
+                `
+                        : ""
+                }
+                ${
+                    invoice.photosAfter?.length
+                        ? `
                 <div class="photo-group">
                     <h3>Après</h3>
-                    ${invoice.photosAfter.map(photo => `
+                    ${invoice.photosAfter
+                        .map(
+                            (photo) => `
                         <img src="${photo}" alt="Photo après" class="photo">
-                    `).join('')}
+                    `,
+                        )
+                        .join("")}
                 </div>
-                ` : ''}
+                `
+                        : ""
+                }
             </div>
         </div>
-        ` : ''}
+        `
+                : ""
+        }
 
         <div class="footer">
             <p><strong>MY JANTES</strong> - SAS au capital variable - SIREN: 913 678 199</p>
@@ -449,5 +491,5 @@ startxref
 </body>
 </html>
     `;
-  }
+    }
 }
