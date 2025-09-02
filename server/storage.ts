@@ -2,8 +2,8 @@ import {
   type User, type InsertUser, type Service, type InsertService, type Booking, type InsertBooking, 
   type Quote, type InsertQuote, type Invoice, type InsertInvoice, type Notification, 
   type InsertNotification, type WorkProgress, type InsertWorkProgress, type AuditLog, type InsertAuditLog,
-  type BookingAssignment, type InsertBookingAssignment,
-  users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings, auditLogs, bookingAssignments
+  type BookingAssignment, type InsertBookingAssignment, type TimeSlotConfig, type InsertTimeSlotConfig,
+  users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings, auditLogs, bookingAssignments, timeSlotConfigs
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -66,6 +66,12 @@ export interface IStorage {
   
   // Employee management
   getEmployees(): Promise<User[]>;
+  
+  // Time Slot Configurations
+  getTimeSlotConfigs(): Promise<TimeSlotConfig[]>;
+  createTimeSlotConfig(config: InsertTimeSlotConfig): Promise<TimeSlotConfig>;
+  updateTimeSlotConfig(date: string, timeSlot: string, data: Partial<InsertTimeSlotConfig>): Promise<TimeSlotConfig | undefined>;
+  getTimeSlotConfig(date: string, timeSlot: string): Promise<TimeSlotConfig | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -459,6 +465,36 @@ export class DatabaseStorage implements IStorage {
   async getEmployees(): Promise<User[]> {
     return await db.select().from(users)
       .where(eq(users.role, 'employee'));
+  }
+
+  // Time Slot Configurations
+  async getTimeSlotConfigs(): Promise<TimeSlotConfig[]> {
+    return await db.select().from(timeSlotConfigs);
+  }
+
+  async createTimeSlotConfig(config: InsertTimeSlotConfig): Promise<TimeSlotConfig> {
+    const [newConfig] = await db.insert(timeSlotConfigs)
+      .values(config)
+      .returning();
+    return newConfig;
+  }
+
+  async updateTimeSlotConfig(date: string, timeSlot: string, data: Partial<InsertTimeSlotConfig>): Promise<TimeSlotConfig | undefined> {
+    const [updatedConfig] = await db.update(timeSlotConfigs)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(timeSlotConfigs.date, date), eq(timeSlotConfigs.timeSlot, timeSlot)))
+      .returning();
+    
+    return updatedConfig || undefined;
+  }
+
+  async getTimeSlotConfig(date: string, timeSlot: string): Promise<TimeSlotConfig | undefined> {
+    const [config] = await db.select().from(timeSlotConfigs)
+      .where(and(eq(timeSlotConfigs.date, date), eq(timeSlotConfigs.timeSlot, timeSlot)));
+    return config || undefined;
   }
 
   // Additional method for getting a single booking

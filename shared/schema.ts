@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, decimal, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, decimal, jsonb, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -130,6 +130,19 @@ export const bookingAssignments = pgTable("booking_assignments", {
   notes: text("notes"),
 });
 
+export const timeSlotConfigs = pgTable("time_slot_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: varchar("date").notNull(), // Format: YYYY-MM-DD
+  timeSlot: varchar("time_slot").notNull(), // Format: HH:MM
+  maxCapacity: integer("max_capacity").notNull().default(2), // Nombre max de réservations
+  isActive: boolean("is_active").notNull().default(true),
+  reason: text("reason"), // Raison si désactivé (congé, etc.)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  dateTimeIndex: uniqueIndex("date_time_idx").on(table.date, table.timeSlot),
+}));
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -181,6 +194,12 @@ export const insertBookingAssignmentSchema = createInsertSchema(bookingAssignmen
   assignedAt: true,
 });
 
+export const insertTimeSlotConfigSchema = createInsertSchema(timeSlotConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Email invalide"),
   password: z.string().min(6, "Le mot de passe doit faire au moins 6 caractères"),
@@ -206,4 +225,6 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type BookingAssignment = typeof bookingAssignments.$inferSelect;
 export type InsertBookingAssignment = z.infer<typeof insertBookingAssignmentSchema>;
+export type TimeSlotConfig = typeof timeSlotConfigs.$inferSelect;
+export type InsertTimeSlotConfig = z.infer<typeof insertTimeSlotConfigSchema>;
 export type LoginData = z.infer<typeof loginSchema>;

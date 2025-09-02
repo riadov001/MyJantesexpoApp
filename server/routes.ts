@@ -921,6 +921,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Routes pour la gestion des configurations de créneaux
+  app.get("/api/admin/time-slot-configs", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const configs = await storage.getTimeSlotConfigs();
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching time slot configs:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des configurations" });
+    }
+  });
+
+  app.post("/api/admin/time-slot-configs", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const config = await storage.createTimeSlotConfig(req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error creating time slot config:", error);
+      res.status(500).json({ message: "Erreur lors de la création de la configuration" });
+    }
+  });
+
+  app.put("/api/admin/time-slot-configs/:date/:timeSlot", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { date, timeSlot } = req.params;
+      const config = await storage.updateTimeSlotConfig(date, timeSlot, req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating time slot config:", error);
+      res.status(500).json({ message: "Erreur lors de la mise à jour de la configuration" });
+    }
+  });
+
+  app.get("/api/admin/calendar-data", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const bookings = storage.getBookings().filter(booking => {
+        const bookingDate = booking.date;
+        return (!startDate || bookingDate >= startDate) && 
+               (!endDate || bookingDate <= endDate);
+      });
+      
+      const configs = await storage.getTimeSlotConfigs();
+      
+      res.json({
+        bookings,
+        configs,
+      });
+    } catch (error) {
+      console.error("Error fetching calendar data:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des données du calendrier" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
