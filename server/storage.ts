@@ -190,6 +190,15 @@ export class DatabaseStorage implements IStorage {
     return updatedQuote || undefined;
   }
 
+  async updateQuote(id: string, data: Partial<Quote>): Promise<Quote | undefined> {
+    const [updatedQuote] = await db
+      .update(quotes)
+      .set(data)
+      .where(eq(quotes.id, id))
+      .returning();
+    return updatedQuote || undefined;
+  }
+
   // Invoices
   async getUserInvoices(userId: string): Promise<Invoice[]> {
     return await db.select().from(invoices).where(eq(invoices.userId, userId));
@@ -272,6 +281,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work Progress
+  async getAllWorkProgress(): Promise<WorkProgress[]> {
+    return await db.select().from(workProgress).orderBy(workProgress.createdAt);
+  }
+
   async getWorkProgressByBooking(bookingId: string): Promise<WorkProgress[]> {
     return await db.select().from(workProgress)
       .where(eq(workProgress.bookingId, bookingId))

@@ -361,6 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotes = await storage.getAllQuotes();
       res.json(quotes);
     } catch (error) {
+      console.error("Get quotes error:", error);
       res.status(500).json({ message: "Erreur lors de la récupération des devis" });
     }
   });
@@ -390,8 +391,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/invoices", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const invoices = await storage.getAllInvoices();
+      console.log(`Retrieved ${invoices.length} invoices for admin dashboard`);
       res.json(invoices);
     } catch (error) {
+      console.error("Get invoices error:", error);
       res.status(500).json({ message: "Erreur lors de la récupération des factures" });
     }
   });
@@ -540,6 +543,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Utilisateur supprimé avec succès" });
     } catch (error) {
       res.status(500).json({ message: "Erreur lors de la suppression de l'utilisateur" });
+    }
+  });
+
+  // Dashboard stats
+  app.get("/api/admin/dashboard", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const bookings = await storage.getAllBookings();
+      const quotes = await storage.getAllQuotes();
+      const invoices = await storage.getAllInvoices();
+      
+      const stats = {
+        totalBookings: bookings.length,
+        pendingBookings: bookings.filter(b => b.status === "pending").length,
+        totalQuotes: quotes.length,
+        pendingQuotes: quotes.filter(q => q.status === "pending").length,
+        totalInvoices: invoices.length,
+        unpaidInvoices: invoices.filter(i => i.status === "unpaid").length,
+        totalRevenue: invoices
+          .filter(i => i.status === "paid")
+          .reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0)
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Dashboard stats error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des statistiques" });
+    }
+  });
+
+  // Work progress routes  
+  app.get("/api/admin/work-progress", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const progress = await storage.getAllWorkProgress();
+      res.json(progress);
+    } catch (error) {
+      console.error("Work progress error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération du suivi des travaux" });
     }
   });
 
