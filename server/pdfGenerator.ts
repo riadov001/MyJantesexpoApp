@@ -7,9 +7,9 @@ interface InvoiceData {
   userId: string;
   amount: string;
   description: string;
-  workDetails?: string;
-  photosBefore?: string[];
-  photosAfter?: string[];
+  workDetails?: string | null;
+  photosBefore?: string[] | null;
+  photosAfter?: string[] | null;
   status: string;
   createdAt: string;
   user?: {
@@ -49,7 +49,7 @@ export class PDFGenerator {
         printBackground: true
       });
       
-      return pdf;
+      return Buffer.from(pdf);
     } finally {
       await browser.close();
     }
