@@ -56,6 +56,9 @@ export const invoices = pgTable("invoices", {
   quoteId: varchar("quote_id").references(() => quotes.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description").notNull(),
+  photosBefore: jsonb("photos_before").default([]),
+  photosAfter: jsonb("photos_after").default([]),
+  workDetails: text("work_details"),
   status: text("status").default("unpaid"),
   createdAt: timestamp("created_at").defaultNow(),
 });

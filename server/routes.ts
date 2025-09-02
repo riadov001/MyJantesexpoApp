@@ -5,6 +5,8 @@ import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertInvoice
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
 
 const JWT_SECRET = process.env.JWT_SECRET || "myjantes-secret-key";
 
@@ -562,6 +564,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(progress);
     } catch (error) {
       res.status(400).json({ message: "Données de suivi invalides" });
+    }
+  });
+
+  // Object storage routes
+  app.get("/public-objects/:filePath(*)", async (req, res) => {
+    const filePath = req.params.filePath;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const file = await objectStorageService.searchPublicObject(filePath);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      objectStorageService.downloadObject(file, res);
+    } catch (error) {
+      console.error("Error searching for public object:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/objects/:objectPath(*)", authenticateToken, async (req: any, res) => {
+    const userId = req.user?.id;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  app.post("/api/objects/upload", authenticateToken, async (req: any, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // PDF generation routes
+  app.get("/api/admin/invoices/:id/pdf", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      const invoiceWithUser = { ...invoice, user };
+
+      const { PDFGenerator } = await import('./pdfGenerator');
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateInvoicePDF(invoiceWithUser);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="facture-${invoice.id.substring(0, 8)}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Erreur lors de la génération du PDF" });
+    }
+  });
+
+  app.put("/api/admin/invoices/:id/photos", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { photosBefore, photosAfter, workDetails } = req.body;
+      const objectStorageService = new ObjectStorageService();
+      
+      const updatedInvoice = await storage.updateInvoice(req.params.id, {
+        photosBefore,
+        photosAfter,
+        workDetails,
+      });
+      
+      res.json(updatedInvoice);
+    } catch (error) {
+      console.error("Error updating invoice photos:", error);
+      res.status(500).json({ message: "Erreur lors de la mise à jour des photos" });
+    }
+  });
+
+  // Improved quote to invoice conversion
+  app.post("/api/admin/quotes/:id/convert-to-invoice", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      if (quote.status !== "approved") {
+        return res.status(400).json({ message: "Le devis doit être validé avant conversion" });
+      }
+
+      if (!quote.amount) {
+        return res.status(400).json({ message: "Le devis doit avoir un montant défini" });
+      }
+
+      const invoiceData = {
+        userId: quote.userId,
+        quoteId: quote.id,
+        amount: quote.amount,
+        description: `Facture générée depuis le devis ${quote.id.substring(0, 8)} - ${quote.description}`,
+        workDetails: quote.description,
+      };
+
+      const invoice = await storage.createInvoice(invoiceData);
+      
+      // Update quote status
+      await storage.updateQuote(quote.id, { status: "converted" });
+      
+      // Create notification
+      await storage.createNotification({
+        userId: quote.userId,
+        title: "Facture générée",
+        message: `Une facture a été générée à partir de votre devis. Montant: ${quote.amount}€`,
+        type: "invoice",
+        relatedId: invoice.id,
+      });
+
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error converting quote to invoice:", error);
+      res.status(500).json({ message: "Erreur lors de la conversion du devis" });
     }
   });
 

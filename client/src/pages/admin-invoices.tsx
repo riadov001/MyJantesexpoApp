@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Euro, Clock, Plus, Send, Trash2, Edit } from "lucide-react";
+import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera } from "lucide-react";
 import type { Invoice } from "@shared/schema";
 
 interface CreateInvoiceData {
@@ -256,6 +256,16 @@ export default function AdminInvoices() {
               >
                 <Send className="w-4 h-4 mr-1" />
                 Notifier
+              </Button>
+              
+              <Button
+                variant="outline" 
+                size="sm"
+                onClick={() => window.open(`/api/admin/invoices/${invoice.id}/pdf`, '_blank')}
+                data-testid={`button-pdf-${invoice.id}`}
+              >
+                <Download className="w-4 h-4 mr-1" />
+                PDF
               </Button>
               
               <Button

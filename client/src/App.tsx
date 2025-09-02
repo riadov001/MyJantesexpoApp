@@ -18,6 +18,7 @@ import AdminBookings from "@/pages/admin-bookings";
 import AdminQuotes from "@/pages/admin-quotes";
 import AdminInvoices from "@/pages/admin-invoices";
 import AdminUsers from "@/pages/admin-users";
+import AdminWorkProgress from "@/pages/admin-work-progress";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -85,6 +86,7 @@ function Router() {
           <Route path="/admin/quotes" component={() => <AdminRoute component={AdminQuotes} />} />
           <Route path="/admin/invoices" component={() => <AdminRoute component={AdminInvoices} />} />
           <Route path="/admin/users" component={() => <AdminRoute component={AdminUsers} />} />
+          <Route path="/admin/work-progress" component={() => <AdminRoute component={AdminWorkProgress} />} />
           
           <Route>
             {isAuthenticated ? <Redirect to="/" /> : <Redirect to="/login" />}
