@@ -270,12 +270,12 @@ export default function Login() {
       <div className="mt-auto pt-8 text-center">
         <p className="text-xs text-muted-foreground">
           En vous connectant, vous acceptez nos{" "}
-          <a href="#" className="text-primary">
+          <a href="/cgv" className="text-primary">
             CGV
           </a>{" "}
           et{" "}
-          <a href="#" className="text-primary">
-            Politique de confidentialité
+          <a href="/mentions-legales" className="text-primary">
+            Mentions légales
           </a>
         </p>
       </div>
