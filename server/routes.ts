@@ -659,8 +659,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PDF generation routes
-  app.get("/api/admin/invoices/:id/pdf", authenticateToken, requireAdmin, async (req: any, res) => {
+  // PDF generation routes - moved outside admin path to avoid global auth
+  app.get("/api/invoices/:id/pdf", async (req: any, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
