@@ -183,7 +183,7 @@ startxref
   }
 
   private generateInvoiceHTML(invoice: any): string {
-    const logoPath = path.join(process.cwd(), 'client/src/assets/logo.png');
+    const logoPath = path.join(process.cwd(), 'client/src/assets/logo-myjantes.png');
     const logoBase64 = fs.existsSync(logoPath) 
       ? `data:image/png;base64,${fs.readFileSync(logoPath, 'base64')}`
       : '';
@@ -224,6 +224,8 @@ startxref
         }
         .company-info {
             text-align: right;
+            font-size: 12px;
+            line-height: 1.4;
         }
         .company-name {
             font-size: 24px;
@@ -352,9 +354,14 @@ startxref
         <div class="header">
             ${logoBase64 ? `<img src="${logoBase64}" alt="MyJantes" class="logo">` : ''}
             <div class="company-info">
-                <div class="company-name">MyJantes</div>
-                <div>Votre expert en jantes et pneus</div>
-                <div>Email: contact@myjantes.fr</div>
+                <div class="company-name">MY JANTES</div>
+                <div><strong>46 RUE DE LA CONVENTION</strong></div>
+                <div><strong>62800 LIEVIN, France</strong></div>
+                <div style="margin-top: 8px;">SIREN: 913 678 199</div>
+                <div>SIRET: 913 678 199 00021</div>
+                <div>TVA: FR73913678199</div>
+                <div>APE: 4520A - Entretien véhicules</div>
+                <div style="margin-top: 8px;">Email: contact@myjantes.fr</div>
                 <div>Tél: +33 1 23 45 67 89</div>
             </div>
         </div>
@@ -434,7 +441,8 @@ startxref
         ` : ''}
 
         <div class="footer">
-            <p><strong>MyJantes</strong> - Votre expert en jantes et pneus</p>
+            <p><strong>MY JANTES</strong> - SAS au capital variable - SIREN: 913 678 199</p>
+            <p>46 RUE DE LA CONVENTION, 62800 LIEVIN - TVA: FR73913678199</p>
             <p>Merci de votre confiance</p>
         </div>
     </div>

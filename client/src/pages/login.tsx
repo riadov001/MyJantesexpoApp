@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AuthService } from "@/lib/auth";
 import { apiPost } from "@/lib/api";
 import { useLocation } from "wouter";
-import logoUrl from "@/assets/logo.png";
+import logoUrl from "@/assets/logo-myjantes.png";
 
 export default function Login() {
   const [, setLocation] = useLocation();
