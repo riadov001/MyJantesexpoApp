@@ -13,39 +13,24 @@ interface InvoiceData {
   photosAfter?: string[] | null;
   status: string;
   createdAt: string;
+  subtotal?: string;
+  vat?: string;
+  total?: string;
   user?: {
     name: string;
     email: string;
     phone: string;
+    address?: string;
   };
 }
 
 export class PDFGenerator {
   async generateInvoicePDF(invoice: InvoiceData): Promise<Buffer> {
     try {
-      // En développement, créer un PDF simple avec le contenu HTML
-      if (process.env.NODE_ENV === 'development') {
-        return this.generateSimplePDF(invoice);
-      }
-
       const html = this.generateInvoiceHTML(invoice);
       
-      const options = {
-        format: 'A4' as const,
-        margin: {
-          top: '20mm',
-          right: '15mm',
-          bottom: '20mm',
-          left: '15mm'
-        },
-        printBackground: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      };
-
-      const file = { content: html };
-      const pdfBuffer = await htmlPdf.generatePdf(file, options);
-      
-      return pdfBuffer;
+      // Toujours utiliser le PDF fallback pour assurer la compatibilité
+      return this.generateAdvancedPDF(invoice, html);
     } catch (error) {
       console.error('PDF generation error:', error);
       // Fallback vers simple PDF en cas d'erreur
