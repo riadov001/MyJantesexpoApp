@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { BarChart3, Users, FileText, DollarSign, Clock, AlertCircle } from "lucide-react";
+import { BarChart3, Users, FileText, DollarSign, Clock, AlertCircle, Calendar } from "lucide-react";
 
 interface DashboardStats {
   totalBookings: number;
@@ -134,6 +134,17 @@ export default function AdminDashboard() {
                   {stats?.pendingBookings}
                 </span>
               )}
+            </Link>
+
+            <Link
+              href="/admin/calendar"
+              className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
+              data-testid="button-admin-calendar"
+            >
+              <div className="flex items-center space-x-3">
+                <Calendar className="text-primary" size={20} />
+                <span>Planning & Assignations</span>
+              </div>
             </Link>
             
             <Link

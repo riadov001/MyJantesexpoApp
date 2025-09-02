@@ -1,8 +1,9 @@
 import { 
   type User, type InsertUser, type Service, type InsertService, type Booking, type InsertBooking, 
   type Quote, type InsertQuote, type Invoice, type InsertInvoice, type Notification, 
-  type InsertNotification, type WorkProgress, type InsertWorkProgress,
-  users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings
+  type InsertNotification, type WorkProgress, type InsertWorkProgress, type AuditLog, type InsertAuditLog,
+  type BookingAssignment, type InsertBookingAssignment,
+  users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings, auditLogs, bookingAssignments
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -48,6 +49,23 @@ export interface IStorage {
   getWorkProgressByBooking(bookingId: string): Promise<WorkProgress[]>;
   createWorkProgress(progress: InsertWorkProgress): Promise<WorkProgress>;
   updateWorkProgress(id: string, progress: Partial<InsertWorkProgress>): Promise<WorkProgress | undefined>;
+  
+  // Audit Logs
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(entityType?: string, entityId?: string): Promise<AuditLog[]>;
+  
+  // Booking Assignments
+  assignEmployeeToBooking(assignment: InsertBookingAssignment): Promise<BookingAssignment>;
+  getEmployeeAssignments(employeeId: string): Promise<BookingAssignment[]>;
+  getBookingAssignments(bookingId: string): Promise<BookingAssignment[]>;
+  
+  // Additional methods for enhanced tracking
+  updateBookingWithTracking(id: string, status: string, userId: string): Promise<Booking | undefined>;
+  updateQuoteWithTracking(id: string, data: Partial<Quote>, userId: string): Promise<Quote | undefined>;
+  updateInvoiceWithTracking(id: string, data: Partial<Invoice>, userId: string): Promise<Invoice | undefined>;
+  
+  // Employee management
+  getEmployees(): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -306,6 +324,147 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workProgress.id, id))
       .returning();
     return updatedProgress || undefined;
+  }
+
+  // Audit Logs
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [newLog] = await db
+      .insert(auditLogs)
+      .values(log)
+      .returning();
+    return newLog;
+  }
+
+  async getAuditLogs(entityType?: string, entityId?: string): Promise<AuditLog[]> {
+    let query = db.select().from(auditLogs);
+    
+    if (entityType && entityId) {
+      query = query.where(and(eq(auditLogs.entityType, entityType), eq(auditLogs.entityId, entityId)));
+    } else if (entityType) {
+      query = query.where(eq(auditLogs.entityType, entityType));
+    }
+    
+    return await query.orderBy(desc(auditLogs.createdAt));
+  }
+
+  // Booking Assignments
+  async assignEmployeeToBooking(assignment: InsertBookingAssignment): Promise<BookingAssignment> {
+    const [newAssignment] = await db
+      .insert(bookingAssignments)
+      .values(assignment)
+      .returning();
+    return newAssignment;
+  }
+
+  async getEmployeeAssignments(employeeId: string): Promise<BookingAssignment[]> {
+    return await db.select().from(bookingAssignments)
+      .where(eq(bookingAssignments.employeeId, employeeId))
+      .orderBy(desc(bookingAssignments.assignedAt));
+  }
+
+  async getBookingAssignments(bookingId: string): Promise<BookingAssignment[]> {
+    return await db.select().from(bookingAssignments)
+      .where(eq(bookingAssignments.bookingId, bookingId));
+  }
+
+  // Enhanced tracking methods
+  async updateBookingWithTracking(id: string, status: string, userId: string): Promise<Booking | undefined> {
+    // Get old booking for audit
+    const oldBooking = await this.getBooking(id);
+    
+    const [updatedBooking] = await db
+      .update(bookings)
+      .set({ 
+        status, 
+        lastModifiedBy: userId,
+        updatedAt: new Date()
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+
+    // Create audit log
+    if (updatedBooking && oldBooking) {
+      await this.createAuditLog({
+        userId,
+        action: 'status_change',
+        entityType: 'booking',
+        entityId: id,
+        oldValues: { status: oldBooking.status },
+        newValues: { status: updatedBooking.status }
+      });
+    }
+
+    return updatedBooking || undefined;
+  }
+
+  async updateQuoteWithTracking(id: string, data: Partial<Quote>, userId: string): Promise<Quote | undefined> {
+    // Get old quote for audit
+    const oldQuote = await this.getQuote(id);
+    
+    const [updatedQuote] = await db
+      .update(quotes)
+      .set({ 
+        ...data, 
+        lastModifiedBy: userId,
+        updatedAt: new Date()
+      })
+      .where(eq(quotes.id, id))
+      .returning();
+
+    // Create audit log
+    if (updatedQuote && oldQuote) {
+      await this.createAuditLog({
+        userId,
+        action: data.status ? 'status_change' : 'update',
+        entityType: 'quote',
+        entityId: id,
+        oldValues: oldQuote,
+        newValues: data
+      });
+    }
+
+    return updatedQuote || undefined;
+  }
+
+  async updateInvoiceWithTracking(id: string, data: Partial<Invoice>, userId: string): Promise<Invoice | undefined> {
+    // Get old invoice for audit
+    const oldInvoice = await this.getInvoice(id);
+    
+    const [updatedInvoice] = await db
+      .update(invoices)
+      .set({ 
+        ...data, 
+        lastModifiedBy: userId,
+        updatedAt: new Date()
+      })
+      .where(eq(invoices.id, id))
+      .returning();
+
+    // Create audit log
+    if (updatedInvoice && oldInvoice) {
+      await this.createAuditLog({
+        userId,
+        action: data.status ? 'status_change' : 'update',
+        entityType: 'invoice',
+        entityId: id,
+        oldValues: oldInvoice,
+        newValues: data
+      });
+    }
+
+    return updatedInvoice || undefined;
+  }
+
+  // Employee management
+  async getEmployees(): Promise<User[]> {
+    return await db.select().from(users)
+      .where(eq(users.role, 'employee'));
+  }
+
+  // Additional method for getting a single booking
+  async getBooking(id: string): Promise<Booking | undefined> {
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+    return booking || undefined;
   }
 }
 
