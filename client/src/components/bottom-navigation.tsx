@@ -51,7 +51,7 @@ export default function BottomNavigation() {
           const isActive = location === item.path || (item.path === "/admin" && location.startsWith("/admin"));
           const isNotificationTab = item.path === "/notifications";
           const hasUnreadNotifications = unreadCount?.count > 0;
-          const isAdminTab = item.isAdmin;
+          const isAdminTab = 'isAdmin' in item && item.isAdmin;
           
           return (
             <button
