@@ -45,195 +45,8 @@ export class PDFGenerator {
     }
 
     private generateAdvancedPDF(invoice: any, html: string): Buffer {
-        const subtotal = invoice.subtotal || (parseFloat(invoice.amount) / 1.2).toFixed(2);
-        const vatAmount = invoice.vat || (parseFloat(invoice.amount) - parseFloat(subtotal)).toFixed(2);
-        
-        const pdfContent = `%PDF-1.4
-1 0 obj
-<<
-/Type /Catalog
-/Pages 2 0 R
->>
-endobj
-
-2 0 obj
-<<
-/Type /Pages
-/Kids [3 0 R]
-/Count 1
->>
-endobj
-
-3 0 obj
-<<
-/Type /Page
-/Parent 2 0 R
-/Resources <<
-/Font <<
-/F1 4 0 R
-/F2 5 0 R
->>
->>
-/MediaBox [0 0 595 842]
-/Contents 6 0 R
->>
-endobj
-
-4 0 obj
-<<
-/Type /Font
-/Subtype /Type1
-/BaseFont /Helvetica-Bold
->>
-endobj
-
-5 0 obj
-<<
-/Type /Font
-/Subtype /Type1
-/BaseFont /Helvetica
->>
-endobj
-
-6 0 obj
-<<
-/Length 1800
->>
-stream
-BT
-
-/F1 16 Tf
-50 800 Td
-(MY JANTES) Tj
-
-400 0 Td
-/F1 14 Tf
-(FACTURE - MY-${invoice.id.substring(0, 6)}) Tj
-
-/F2 10 Tf
-0 -15 Td
-(Date de facturation: ${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}) Tj
-
-0 -12 Td
-(Echéance: ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}) Tj
-
-0 -12 Td
-(Type d'opération: Opération mixte) Tj
-
-/F2 10 Tf
--400 -50 Td
-(MY JANTES) Tj
-0 -12 Td
-(46 rue de la convention) Tj
-0 -12 Td
-(62800 Lievin) Tj
-0 -12 Td
-(0321408053) Tj
-0 -12 Td
-(contact@myjantes.com) Tj
-0 -12 Td
-(www.myjantes.fr) Tj
-
-300 60 Td
-(${invoice.user?.name?.toUpperCase() || "CLIENT"}) Tj
-${invoice.user?.companyName ? `
-0 -12 Td
-(${invoice.user.companyName}) Tj` : ''}
-${invoice.user?.address ? `
-0 -12 Td
-(${invoice.user.address}) Tj` : ''}
-
-/F1 10 Tf
--300 -80 Td
-(Description) Tj
-60 0 Td
-(Date) Tj
-40 0 Td
-(Qté) Tj
-30 0 Td
-(Unité) Tj
-50 0 Td
-(Prix unitaire) Tj
-60 0 Td
-(TVA) Tj
-40 0 Td
-(Montant) Tj
-
-/F2 9 Tf
--280 -20 Td
-(${invoice.description.substring(0, 35)}) Tj
-60 0 Td
-(${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}) Tj
-40 0 Td
-(1,00) Tj
-30 0 Td
-(pce) Tj
-50 0 Td
-(${subtotal}€) Tj
-60 0 Td
-(20,00 %) Tj
-40 0 Td
-(${parseFloat(invoice.amount).toFixed(2)}€) Tj
-
-/F1 10 Tf
-120 -50 Td
-(Total HT) Tj
-40 0 Td
-(${subtotal}€) Tj
-
-0 -15 Td
-(TVA 20,00 %) Tj
-40 0 Td
-(${vatAmount}€) Tj
-
-/F1 12 Tf
--40 -20 Td
-(Total TTC) Tj
-40 0 Td
-(${parseFloat(invoice.amount).toFixed(2)}€) Tj
-
-/F2 10 Tf
--200 -50 Td
-(Moyens de paiement: Banque: SOCIETE GENERALE) Tj
-0 -12 Td
-(SWIFT/BIC: SOGEFRPP) Tj
-0 -12 Td
-(IBAN: FR76 3000 3029 5800 0201 6936 525) Tj
-
-0 -20 Td
-(Conditions de paiement: 30 jours) Tj
-
-/F2 8 Tf
-150 -100 Td
-(MY JANTES - SASU) Tj
-0 -10 Td
-(46 rue de la convention 62800 Lievin) Tj
-0 -10 Td
-(Numéro de SIRET: 91367819900021 - Numéro de TVA FR73913678199) Tj
-
-ET
-endstream
-endobj
-
-xref
-0 7
-0000000000 65535 f 
-0000000010 00000 n 
-0000000079 00000 n 
-0000000136 00000 n 
-0000000273 00000 n 
-0000000365 00000 n 
-0000000441 00000 n 
-trailer
-<<
-/Size 7
-/Root 1 0 R
->>
-startxref
-2291
-%%EOF`;
-
-        return Buffer.from(pdfContent, "utf8");
+        // Use HTML to PDF for better formatting
+        return Buffer.from(html, 'utf8');
     }
 
     private generateSimplePDF(invoice: any, type: 'invoice' | 'quote' = 'invoice'): Buffer {
@@ -342,37 +155,41 @@ startxref
         .services-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
-            border: 1px solid #000;
+            margin: 30px 0;
+            border: 2px solid #000;
+            font-size: 9px;
         }
         
         .services-table th {
-            background-color: #e0e0e0;
+            background-color: #f5f5f5;
             border: 1px solid #000;
-            padding: 8px 5px;
+            padding: 10px 8px;
             text-align: center;
             font-weight: bold;
-            font-size: 9px;
+            font-size: 10px;
+            color: #000;
         }
         
         .services-table td {
             border: 1px solid #000;
-            padding: 8px 5px;
+            padding: 10px 8px;
             text-align: center;
             font-size: 9px;
+            vertical-align: middle;
         }
         
         .description-col {
-            width: 35%;
+            width: 40%;
             text-align: left !important;
+            padding-left: 12px !important;
         }
         
         .date-col {
-            width: 12%;
+            width: 15%;
         }
         
         .qty-col {
-            width: 8%;
+            width: 10%;
         }
         
         .unit-col {
@@ -380,15 +197,18 @@ startxref
         }
         
         .price-col {
-            width: 15%;
+            width: 12%;
+            text-align: right !important;
         }
         
         .vat-col {
-            width: 10%;
+            width: 8%;
         }
         
         .amount-col {
-            width: 10%;
+            width: 15%;
+            text-align: right !important;
+            font-weight: bold;
         }
         
         .totals {
@@ -531,19 +351,19 @@ startxref
     <table class="services-table">
         <thead>
             <tr>
-                <th class="description-col">Description</th>
-                <th class="date-col">Date</th>
-                <th class="qty-col">Qté</th>
-                <th class="unit-col">Unité</th>
-                <th class="price-col">Prix unitaire</th>
+                <th class="description-col">DESCRIPTION</th>
+                <th class="date-col">DATE</th>
+                <th class="qty-col">QTÉ</th>
+                <th class="unit-col">UNITÉ</th>
+                <th class="price-col">PRIX HT</th>
                 <th class="vat-col">TVA</th>
-                <th class="amount-col">Montant</th>
+                <th class="amount-col">TOTAL TTC</th>
             </tr>
         </thead>
         <tbody>
             ${items.map(item => `
                 <tr>
-                    <td class="description-col" style="text-align: left;">${item.description || invoice.description}</td>
+                    <td class="description-col">${item.description || invoice.description}</td>
                     <td class="date-col">${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</td>
                     <td class="qty-col">${(item.quantity || 1).toFixed(2)}</td>
                     <td class="unit-col">pce</td>
