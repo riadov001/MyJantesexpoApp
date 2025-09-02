@@ -771,6 +771,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Send invoice by email
+  app.get("/api/admin/invoices/:id/mobile-email-data", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      if (!user || !user.email) {
+        return res.status(400).json({ message: "Email du client non disponible" });
+      }
+
+      // Return the data needed for mobile email
+      res.json({
+        clientEmail: user.email,
+        clientName: user.name,
+        description: invoice.description,
+        amount: invoice.amount,
+        invoiceId: invoice.id,
+        pdfUrl: `/api/invoices/${invoice.id}/pdf`
+      });
+    } catch (error) {
+      console.error("Error getting invoice mobile email data:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des données" });
+    }
+  });
+
   app.post("/api/admin/invoices/:id/send-email", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);

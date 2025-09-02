@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera } from "lucide-react";
+import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera, Smartphone } from "lucide-react";
 import type { Invoice } from "@shared/schema";
 
 interface CreateInvoiceData {
@@ -35,11 +35,11 @@ export default function AdminInvoices() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: invoices, isLoading } = useQuery({
+  const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["/api/admin/invoices"],
   });
 
-  const { data: users } = useQuery({
+  const { data: users = [] } = useQuery({
     queryKey: ["/api/admin/users"],
   });
 
@@ -75,6 +75,38 @@ export default function AdminInvoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
       toast({ title: "Email envoyé", description: "La facture a été envoyée par email avec succès." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openMobileEmailMutation = useMutation({
+    mutationFn: (id: string) => apiGet(`/api/admin/invoices/${id}/mobile-email-data`),
+    onSuccess: (data: any) => {
+      const emailTemplate = `Bonjour,
+
+Veuillez trouver ci-joint votre facture.
+
+En vous remerciant pour votre confiance.
+
+Cordialement,
+MyJantes`;
+
+      const subject = `Facture MyJantes - ${data.description}`;
+      const body = encodeURIComponent(emailTemplate);
+      const subjectEncoded = encodeURIComponent(subject);
+      
+      // Créer un lien mailto: qui ouvre l'application de messagerie
+      const mailtoUrl = `mailto:${data.clientEmail}?subject=${subjectEncoded}&body=${body}`;
+      
+      // Ouvrir l'application de messagerie
+      window.location.href = mailtoUrl;
+      
+      toast({ 
+        title: "Application messagerie ouverte", 
+        description: "L'application de messagerie s'est ouverte avec les données pré-remplies. Ajoutez manuellement la facture PDF en pièce jointe." 
+      });
     },
     onError: (error: any) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
@@ -260,7 +292,7 @@ export default function AdminInvoices() {
               </div>
               
               {/* Ligne 2: Actions principales */}
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-3">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -293,6 +325,24 @@ export default function AdminInvoices() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>{sendEmailMutation.isPending ? "Envoi..." : "Envoyer Email"}</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => openMobileEmailMutation.mutate(invoice.id)}
+                      disabled={openMobileEmailMutation.isPending}
+                      data-testid={`button-mobile-email-${invoice.id}`}
+                      className="h-12 w-12 bg-blue-50 hover:bg-blue-100"
+                    >
+                      <Smartphone className="w-5 h-5 text-blue-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{openMobileEmailMutation.isPending ? "Ouverture..." : "Email Mobile"}</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -369,7 +419,7 @@ export default function AdminInvoices() {
           </div>
         ))}
 
-        {!invoices?.length && (
+        {!invoices.length && (
           <div className="ios-card text-center py-8">
             <FileText className="text-muted-foreground mx-auto mb-4" size={48} />
             <p className="text-muted-foreground">Aucune facture trouvée</p>
