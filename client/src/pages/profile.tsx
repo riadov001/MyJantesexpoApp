@@ -46,6 +46,12 @@ export default function Profile() {
       action: () => setLocation("/admin"),
       testId: "button-admin"
     },
+    {
+      icon: User,
+      label: "Profil Professionnel",
+      action: () => setLocation("/admin-profile"),
+      testId: "button-admin-profile"
+    },
   ];
 
   return (

@@ -22,6 +22,8 @@ import AdminQuotes from "@/pages/admin-quotes";
 import AdminInvoices from "@/pages/admin-invoices";
 import AdminUsers from "@/pages/admin-users";
 import AdminWorkProgress from "@/pages/admin-work-progress";
+import AdminProfile from "@/pages/admin-profile";
+import AdminCalendar from "@/pages/admin-calendar";
 import BottomNavigation from "@/components/bottom-navigation";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -46,6 +48,22 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
   }
   
   if (!isAdmin) {
+    return <Redirect to="/" />;
+  }
+  
+  return <Component />;
+}
+
+function AdminOrEmployeeRoute({ component: Component }: { component: React.ComponentType }) {
+  const isAuthenticated = AuthService.isAuthenticated();
+  const user = AuthService.getUser();
+  const isAdminOrEmployee = user?.role === "admin" || user?.role === "employee";
+  
+  if (!isAuthenticated) {
+    return <Redirect to="/login" />;
+  }
+  
+  if (!isAdminOrEmployee) {
     return <Redirect to="/" />;
   }
   
@@ -82,6 +100,8 @@ function Router() {
           <Route path="/admin/invoices" component={() => <AdminRoute component={AdminInvoices} />} />
           <Route path="/admin/users" component={() => <AdminRoute component={AdminUsers} />} />
           <Route path="/admin/work-progress" component={() => <AdminRoute component={AdminWorkProgress} />} />
+          <Route path="/admin/calendar" component={() => <AdminRoute component={AdminCalendar} />} />
+          <Route path="/admin-profile" component={() => <AdminOrEmployeeRoute component={AdminProfile} />} />
           
           <Route>
             {isAuthenticated ? <Redirect to="/" /> : <Redirect to="/login" />}

@@ -43,6 +43,18 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   }
 };
 
+const requireAdminOrEmployee = async (req: any, res: any, next: any) => {
+  try {
+    const user = await storage.getUser(req.user.userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'employee')) {
+      return res.status(403).json({ message: 'Accès administrateur ou employé requis' });
+    }
+    next();
+  } catch (error) {
+    return res.status(500).json({ message: 'Erreur de vérification des permissions' });
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
@@ -339,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/bookings/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const { status } = req.body;
-      const booking = await storage.updateBookingStatus(req.params.id, status);
+      const booking = await storage.updateBookingWithTracking(req.params.id, status, req.user.userId);
       
       // Create notification for user
       if (booking) {
@@ -371,7 +383,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/quotes/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const { status, amount } = req.body;
-      const quote = await storage.updateQuoteStatus(req.params.id, status, amount);
+      const updateData = { status, ...(amount && { amount }) };
+      const quote = await storage.updateQuoteWithTracking(req.params.id, updateData, req.user.userId);
       
       // Create notification for user
       if (quote) {
@@ -444,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/invoices/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const { status } = req.body;
-      const invoice = await storage.updateInvoiceStatus(req.params.id, status);
+      const invoice = await storage.updateInvoiceWithTracking(req.params.id, { status }, req.user.userId);
       
       // Create notification for user
       if (invoice) {
@@ -606,6 +619,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(progress);
     } catch (error) {
       res.status(400).json({ message: "Données de suivi invalides" });
+    }
+  });
+
+  // Audit Logs Routes
+  app.get("/api/admin/audit-logs", authenticateToken, requireAdminOrEmployee, async (req: any, res) => {
+    try {
+      const { userId, entityType, entityId } = req.query;
+      const logs = await storage.getAuditLogs(entityType, entityId);
+      
+      // Filter by user if requested and not admin
+      const user = await storage.getUser(req.user.userId);
+      if (userId && user?.role !== "admin") {
+        // Only allow employees to see their own logs
+        const filteredLogs = logs.filter(log => log.userId === req.user.userId);
+        res.json(filteredLogs);
+      } else {
+        res.json(logs);
+      }
+    } catch (error) {
+      console.error("Get audit logs error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des logs" });
+    }
+  });
+
+  // Employee Assignment Routes
+  app.post("/api/admin/assign-employee", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const assignmentData = insertBookingAssignmentSchema.parse(req.body);
+      const assignment = await storage.assignEmployeeToBooking({
+        ...assignmentData,
+        assignedBy: req.user.userId,
+      });
+
+      // Create audit log
+      await storage.createAuditLog({
+        userId: req.user.userId,
+        action: "assign_employee",
+        entityType: "booking",
+        entityId: assignmentData.bookingId,
+        newValues: { employeeId: assignmentData.employeeId, notes: assignmentData.notes }
+      });
+
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Assign employee error:", error);
+      res.status(400).json({ message: "Erreur lors de l'assignation" });
+    }
+  });
+
+  app.get("/api/admin/employee-assignments/:employeeId", authenticateToken, requireAdminOrEmployee, async (req: any, res) => {
+    try {
+      const { employeeId } = req.params;
+      
+      // Check if user can access this data
+      const user = await storage.getUser(req.user.userId);
+      if (user?.role !== "admin" && req.user.userId !== employeeId) {
+        return res.status(403).json({ message: "Accès non autorisé" });
+      }
+
+      const assignments = await storage.getEmployeeAssignments(employeeId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Get employee assignments error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des assignations" });
+    }
+  });
+
+  // Employee Management Routes
+  app.get("/api/admin/employees", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const employees = await storage.getEmployees();
+      res.json(employees);
+    } catch (error) {
+      console.error("Get employees error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des employés" });
     }
   });
 

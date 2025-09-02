@@ -33,7 +33,11 @@ export const bookings = pgTable("bookings", {
   vehiclePlate: text("vehicle_plate").notNull(),
   notes: text("notes"),
   status: text("status").default("pending"),
+  assignedEmployee: varchar("assigned_employee").references(() => users.id),
+  estimatedDuration: integer("estimated_duration"), // en minutes
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const quotes = pgTable("quotes", {
@@ -48,7 +52,9 @@ export const quotes = pgTable("quotes", {
   photos: jsonb("photos").default([]),
   amount: decimal("amount", { precision: 10, scale: 2 }),
   status: text("status").default("pending"),
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const invoices = pgTable("invoices", {
@@ -65,7 +71,9 @@ export const invoices = pgTable("invoices", {
   workDetails: text("work_details"),
   status: text("status").default("unpaid"),
   emailSent: boolean("email_sent").default(false),
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const notifications = pgTable("notifications", {
@@ -96,6 +104,30 @@ export const adminSettings = pgTable("admin_settings", {
   key: text("key").notNull().unique(),
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Table d'audit pour tracer toutes les actions
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // create, update, delete, status_change, email_sent, etc.
+  entityType: text("entity_type").notNull(), // booking, quote, invoice, user, etc.
+  entityId: varchar("entity_id").notNull(),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Ajouter un système d'assignation d'employés aux réservations
+export const bookingAssignments = pgTable("booking_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id).notNull(),
+  employeeId: varchar("employee_id").references(() => users.id).notNull(),
+  assignedBy: varchar("assigned_by").references(() => users.id).notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  notes: text("notes"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -139,6 +171,16 @@ export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit(
   updatedAt: true,
 });
 
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBookingAssignmentSchema = createInsertSchema(bookingAssignments).omit({
+  id: true,
+  assignedAt: true,
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Email invalide"),
   password: z.string().min(6, "Le mot de passe doit faire au moins 6 caractères"),
@@ -160,4 +202,8 @@ export type WorkProgress = typeof workProgress.$inferSelect;
 export type InsertWorkProgress = z.infer<typeof insertWorkProgressSchema>;
 export type AdminSettings = typeof adminSettings.$inferSelect;
 export type InsertAdminSettings = z.infer<typeof insertAdminSettingsSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type BookingAssignment = typeof bookingAssignments.$inferSelect;
+export type InsertBookingAssignment = z.infer<typeof insertBookingAssignmentSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
