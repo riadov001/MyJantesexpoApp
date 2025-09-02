@@ -22,14 +22,16 @@ const queryClient = new QueryClient({
 
 // Simple query function
 const defaultQueryFn = async ({ queryKey }: { queryKey: readonly unknown[] }) => {
-  const token = localStorage.getItem("auth_token");
-  const headers: Record<string, string> = {};
+  const token = localStorage.getItem("myjantes_token");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(queryKey.join("/") as string, {
+  const res = await fetch(queryKey.join("") as string, {
     headers,
     credentials: "include",
   });
