@@ -842,6 +842,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route pour génération PDF de devis
+  app.get("/api/quotes/:id/pdf", async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      const user = await storage.getUser(quote.userId);
+      const quoteWithUser = { ...quote, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateQuotePDF(quoteWithUser);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="devis-${quote.id.substring(0, 8)}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating quote PDF:", error);
+      res.status(500).json({ message: "Erreur lors de la génération du PDF du devis" });
+    }
+  });
+
   // Send invoice by email
   app.get("/api/admin/invoices/:id/mobile-email-data", authenticateToken, requireAdmin, async (req: any, res) => {
     try {

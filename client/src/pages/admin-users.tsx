@@ -22,6 +22,13 @@ interface User {
   email: string;
   phone?: string;
   role: string;
+  clientType?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companySiret?: string;
+  companyVat?: string;
+  companyApe?: string;
+  companyContact?: string;
   createdAt: string;
 }
 
@@ -31,6 +38,22 @@ const createUserSchema = z.object({
   password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
   phone: z.string().optional(),
   role: z.enum(["admin", "employee", "customer"]),
+  clientType: z.enum(["particulier", "professionnel"]).default("particulier"),
+  // Champs société (optionnels, requis seulement si professionnel)
+  companyName: z.string().optional(),
+  companyAddress: z.string().optional(),
+  companySiret: z.string().optional(),
+  companyVat: z.string().optional(),
+  companyApe: z.string().optional(),
+  companyContact: z.string().optional(),
+}).refine((data) => {
+  if (data.clientType === "professionnel") {
+    return data.companyName && data.companyName.length > 0;
+  }
+  return true;
+}, {
+  message: "Nom de l'entreprise requis pour les clients professionnels",
+  path: ["companyName"],
 });
 
 type CreateUserData = z.infer<typeof createUserSchema>;
@@ -51,8 +74,17 @@ export default function AdminUsers() {
       password: "",
       phone: "",
       role: "customer",
+      clientType: "particulier",
+      companyName: "",
+      companyAddress: "",
+      companySiret: "",
+      companyVat: "",
+      companyApe: "",
+      companyContact: "",
     },
   });
+
+  const clientType = form.watch("clientType");
 
   const createUserMutation = useMutation({
     mutationFn: (data: CreateUserData) => apiPost("/api/admin/users", data),
@@ -244,6 +276,93 @@ export default function AdminUsers() {
                 )}
               </div>
 
+              {form.watch("role") === "customer" && (
+                <div>
+                  <Label htmlFor="clientType">Type de client</Label>
+                  <Select 
+                    value={form.watch("clientType")} 
+                    onValueChange={(value) => form.setValue("clientType", value as any)}
+                  >
+                    <SelectTrigger data-testid="select-client-type">
+                      <SelectValue placeholder="Type de client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="particulier">Particulier</SelectItem>
+                      <SelectItem value="professionnel">Professionnel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {form.watch("role") === "customer" && clientType === "professionnel" && (
+                <>
+                  <div>
+                    <Label htmlFor="companyName">Nom de l'entreprise *</Label>
+                    <Input
+                      id="companyName"
+                      placeholder="Nom de l'entreprise"
+                      data-testid="input-company-name"
+                      {...form.register("companyName")}
+                    />
+                    {form.formState.errors.companyName && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.companyName.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="companyAddress">Adresse de l'entreprise</Label>
+                    <Input
+                      id="companyAddress"
+                      placeholder="Adresse complète de l'entreprise"
+                      data-testid="input-company-address"
+                      {...form.register("companyAddress")}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="companySiret">SIRET</Label>
+                    <Input
+                      id="companySiret"
+                      placeholder="Numéro SIRET"
+                      data-testid="input-company-siret"
+                      {...form.register("companySiret")}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="companyVat">Numéro TVA</Label>
+                    <Input
+                      id="companyVat"
+                      placeholder="Numéro de TVA intracommunautaire"
+                      data-testid="input-company-vat"
+                      {...form.register("companyVat")}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="companyApe">Code APE</Label>
+                    <Input
+                      id="companyApe"
+                      placeholder="Code APE/NAF"
+                      data-testid="input-company-ape"
+                      {...form.register("companyApe")}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="companyContact">Contact dans l'entreprise</Label>
+                    <Input
+                      id="companyContact"
+                      placeholder="Nom du contact principal"
+                      data-testid="input-company-contact"
+                      {...form.register("companyContact")}
+                    />
+                  </div>
+                </>
+              )}
+
               <div className="flex space-x-2 pt-4">
                 <Button 
                   type="button" 
@@ -292,6 +411,23 @@ export default function AdminUsers() {
                         <p className="text-xs text-muted-foreground" data-testid={`user-phone-${user.id}`}>
                           {user.phone}
                         </p>
+                      )}
+                      {user.role === "customer" && user.clientType === "professionnel" && user.companyName && (
+                        <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
+                          <p className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                            🏢 {user.companyName}
+                          </p>
+                          {user.companySiret && (
+                            <p className="text-xs text-muted-foreground">
+                              SIRET: {user.companySiret}
+                            </p>
+                          )}
+                          {user.companyContact && (
+                            <p className="text-xs text-muted-foreground">
+                              Contact: {user.companyContact}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

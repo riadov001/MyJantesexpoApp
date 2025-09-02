@@ -21,31 +21,33 @@ interface InvoiceData {
         email: string;
         phone: string;
         address?: string;
+        clientType?: string;
+        companyName?: string;
+        companyAddress?: string;
+        companySiret?: string;
+        companyVat?: string;
     };
 }
 
 export class PDFGenerator {
-    async generateInvoicePDF(invoice: any): Promise<Buffer> {
+    async generateInvoicePDF(invoice: any, type: 'invoice' | 'quote' = 'invoice'): Promise<Buffer> {
         try {
-            const html = this.generateInvoiceHTML(invoice);
-
-            // Toujours utiliser le PDF fallback pour assurer la compatibilité
+            const html = this.generateMyJantesHTML(invoice, type);
             return this.generateAdvancedPDF(invoice, html);
         } catch (error) {
             console.error("PDF generation error:", error);
-            // Fallback vers simple PDF en cas d'erreur
-            return this.generateSimplePDF(invoice);
+            return this.generateSimplePDF(invoice, type);
         }
     }
 
-    private generateAdvancedPDF(invoice: any, html: string): Buffer {
-        // Pour maintenant, créer un PDF professionnel en mode texte
-        const subtotal =
-            invoice.subtotal || (parseFloat(invoice.amount) / 1.2).toFixed(2);
-        const vatAmount =
-            invoice.vat ||
-            (parseFloat(invoice.amount) - parseFloat(subtotal)).toFixed(2);
+    async generateQuotePDF(quote: any): Promise<Buffer> {
+        return this.generateInvoicePDF(quote, 'quote');
+    }
 
+    private generateAdvancedPDF(invoice: any, html: string): Buffer {
+        const subtotal = invoice.subtotal || (parseFloat(invoice.amount) / 1.2).toFixed(2);
+        const vatAmount = invoice.vat || (parseFloat(invoice.amount) - parseFloat(subtotal)).toFixed(2);
+        
         const pdfContent = `%PDF-1.4
 1 0 obj
 <<
@@ -72,7 +74,7 @@ endobj
 /F2 5 0 R
 >>
 >>
-/MediaBox [0 0 612 792]
+/MediaBox [0 0 595 842]
 /Contents 6 0 R
 >>
 endobj
@@ -95,79 +97,120 @@ endobj
 
 6 0 obj
 <<
-/Length 1200
+/Length 1800
 >>
 stream
 BT
-/F1 20 Tf
-50 750 Td
-(MY JANTES) Tj
-/F2 12 Tf
-0 -25 Td
-(Service professionnel de jantes) Tj
-0 -15 Td
-(SAS au capital variable - SIREN: 913 678 199) Tj
-0 -15 Td
-(46 RUE DE LA CONVENTION, 62800 LIEVIN) Tj
-0 -15 Td
-(TVA: FR73913678199) Tj
-0 -15 Td
-(Email: contact@myjantes.fr) Tj
-0 -15 Td
+
 /F1 16 Tf
-0 -50 Td
-(FACTURE N° ${invoice.id.substring(0, 8).toUpperCase()}) Tj
+50 800 Td
+(MY JANTES) Tj
+
+400 0 Td
+/F1 14 Tf
+(FACTURE - MY-${invoice.id.substring(0, 6)}) Tj
 
 /F2 10 Tf
-350 -5 Td
-(Date: ${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}) Tj
+0 -15 Td
+(Date de facturation: ${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}) Tj
+
+0 -12 Td
+(Echéance: ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}) Tj
+
+0 -12 Td
+(Type d'opération: Opération mixte) Tj
+
+/F2 10 Tf
+-400 -50 Td
+(MY JANTES) Tj
+0 -12 Td
+(46 rue de la convention) Tj
+0 -12 Td
+(62800 Lievin) Tj
+0 -12 Td
+(0321408053) Tj
+0 -12 Td
+(contact@myjantes.com) Tj
+0 -12 Td
+(www.myjantes.fr) Tj
+
+300 60 Td
+(${invoice.user?.name?.toUpperCase() || "CLIENT"}) Tj
+${invoice.user?.companyName ? `
+0 -12 Td
+(${invoice.user.companyName}) Tj` : ''}
+${invoice.user?.address ? `
+0 -12 Td
+(${invoice.user.address}) Tj` : ''}
+
+/F1 10 Tf
+-300 -80 Td
+(Description) Tj
+60 0 Td
+(Date) Tj
+40 0 Td
+(Qté) Tj
+30 0 Td
+(Unité) Tj
+50 0 Td
+(Prix unitaire) Tj
+60 0 Td
+(TVA) Tj
+40 0 Td
+(Montant) Tj
+
+/F2 9 Tf
+-280 -20 Td
+(${invoice.description.substring(0, 35)}) Tj
+60 0 Td
+(${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}) Tj
+40 0 Td
+(1,00) Tj
+30 0 Td
+(pce) Tj
+50 0 Td
+(${subtotal}€) Tj
+60 0 Td
+(20,00 %) Tj
+40 0 Td
+(${parseFloat(invoice.amount).toFixed(2)}€) Tj
+
+/F1 10 Tf
+120 -50 Td
+(Total HT) Tj
+40 0 Td
+(${subtotal}€) Tj
+
+0 -15 Td
+(TVA 20,00 %) Tj
+40 0 Td
+(${vatAmount}€) Tj
 
 /F1 12 Tf
--350 -40 Td
-(FACTURE ADRESSEE A:) Tj
+-40 -20 Td
+(Total TTC) Tj
+40 0 Td
+(${parseFloat(invoice.amount).toFixed(2)}€) Tj
+
 /F2 10 Tf
+-200 -50 Td
+(Moyens de paiement: Banque: SOCIETE GENERALE) Tj
+0 -12 Td
+(SWIFT/BIC: SOGEFRPP) Tj
+0 -12 Td
+(IBAN: FR76 3000 3029 5800 0201 6936 525) Tj
+
 0 -20 Td
-(${invoice.user?.name || "Client"}) Tj
-0 -15 Td
-(${invoice.user?.email || ""}) Tj
-0 -15 Td
-(${invoice.user?.phone || ""}) Tj
-${
-    invoice.user?.address
-        ? `0 -15 Td
-(${invoice.user.address}) Tj`
-        : ""
-}
-
-/F1 12 Tf
-0 -40 Td
-(DESCRIPTION DES SERVICES:) Tj
-/F2 10 Tf
-0 -20 Td
-(${invoice.description}) Tj
-${
-    invoice.workDetails
-        ? `0 -15 Td
-(Details: ${invoice.workDetails}) Tj`
-        : ""
-}
-
-0 -30 Td
-(Sous-total HT: ${subtotal} EUR) Tj
-0 -15 Td
-(TVA (20%): ${vatAmount} EUR) Tj
-/F1 12 Tf
-0 -15 Td
-(TOTAL TTC: ${invoice.amount} EUR) Tj
-
-/F2 10 Tf
-0 -30 Td
-(Statut: ${invoice.status === "paid" ? "PAYEE" : "EN ATTENTE DE PAIEMENT"}) Tj
-
-0 -40 Td
 (Conditions de paiement: 30 jours) Tj
-0 -15 Td
-(TVA non applicable - art. 293 B du CGI) Tj
+
+/F2 8 Tf
+150 -100 Td
+(MY JANTES - SASU) Tj
+0 -10 Td
+(46 rue de la convention 62800 Lievin) Tj
+0 -10 Td
+(Numéro de SIRET: 91367819900021 - Numéro de TVA FR73913678199) Tj
+
 ET
 endstream
 endobj
@@ -187,26 +230,18 @@ trailer
 /Root 1 0 R
 >>
 startxref
-1691
+2291
 %%EOF`;
 
         return Buffer.from(pdfContent, "utf8");
     }
 
-    private generateSimplePDF(invoice: any): Buffer {
+    private generateSimplePDF(invoice: any, type: 'invoice' | 'quote' = 'invoice'): Buffer {
         return this.generateAdvancedPDF(invoice, "");
     }
 
-    private generateInvoiceHTML(invoice: any): string {
-        const logoPath = path.join(
-            process.cwd(),
-            "client/src/assets/logo-myjantes.png",
-        );
-        const logoBase64 = fs.existsSync(logoPath)
-            ? `data:image/png;base64,${fs.readFileSync(logoPath, "base64")}`
-            : "";
-
-        // Calculs avancés avec les nouveaux champs
+    private generateMyJantesHTML(invoice: any, type: 'invoice' | 'quote' = 'invoice'): string {
+        // Calculs financiers
         const subtotal = invoice.subtotal ? parseFloat(invoice.subtotal) : (parseFloat(invoice.amount) / 1.2);
         const vatRate = invoice.vatRate ? parseFloat(invoice.vatRate) : 20;
         const vatAmount = invoice.vat ? parseFloat(invoice.vat) : (subtotal * vatRate / 100);
@@ -220,328 +255,369 @@ startxref
             total: subtotal
         }];
 
+        const documentTitle = type === 'quote' ? 'DEVIS' : 'FACTURE';
+        const documentNumber = type === 'quote' ? `DV-${invoice.id.substring(0, 6)}` : `MY-${invoice.id.substring(0, 6)}`;
+
         return `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Facture ${invoice.id}</title>
+    <title>${documentTitle} ${documentNumber}</title>
     <style>
+        @page {
+            margin: 20mm;
+            size: A4;
+        }
+        
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
+            font-size: 10px;
             margin: 0;
             padding: 0;
-            color: #333;
-            line-height: 1.6;
+            color: #000;
+            line-height: 1.2;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+        
         .header {
+            width: 100%;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 40px;
-            border-bottom: 3px solid #dc2626;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #000;
             padding-bottom: 20px;
         }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
         .logo {
-            max-height: 80px;
-            max-width: 200px;
+            width: 60px;
+            height: 60px;
+            border: 1px solid #000;
+            border-radius: 50%;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
         }
-        .company-info {
+        
+        .company-header {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .document-info {
             text-align: right;
-            font-size: 12px;
-            line-height: 1.4;
         }
-        .company-name {
-            font-size: 24px;
+        
+        .document-title {
+            font-size: 18px;
             font-weight: bold;
-            color: #dc2626;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
-        .invoice-title {
-            font-size: 28px;
-            font-weight: bold;
-            color: #dc2626;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-        .invoice-info {
+        
+        .company-details {
+            width: 100%;
             display: flex;
             justify-content: space-between;
             margin-bottom: 40px;
         }
-        .invoice-details, .client-details {
+        
+        .company-info, .client-info {
             width: 45%;
         }
-        .vehicle-info {
-            background-color: #f8f8f8;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            border-left: 4px solid #dc2626;
-        }
-        .vehicle-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .detail-title {
+        
+        .company-info h3, .client-info h3 {
+            margin: 0 0 10px 0;
+            font-size: 12px;
             font-weight: bold;
-            color: #dc2626;
-            font-size: 16px;
-            margin-bottom: 10px;
         }
-        .detail-item {
-            margin-bottom: 5px;
-        }
+        
         .services-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 30px;
+            border: 1px solid #000;
         }
+        
         .services-table th {
-            background-color: #dc2626;
-            color: white;
-            padding: 12px;
-            text-align: left;
+            background-color: #e0e0e0;
+            border: 1px solid #000;
+            padding: 8px 5px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 9px;
         }
+        
         .services-table td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
+            border: 1px solid #000;
+            padding: 8px 5px;
+            text-align: center;
+            font-size: 9px;
         }
-        .total-section {
+        
+        .description-col {
+            width: 35%;
+            text-align: left !important;
+        }
+        
+        .date-col {
+            width: 12%;
+        }
+        
+        .qty-col {
+            width: 8%;
+        }
+        
+        .unit-col {
+            width: 10%;
+        }
+        
+        .price-col {
+            width: 15%;
+        }
+        
+        .vat-col {
+            width: 10%;
+        }
+        
+        .amount-col {
+            width: 10%;
+        }
+        
+        .totals {
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        
+        .totals-table {
+            margin-left: auto;
+            width: 200px;
+        }
+        
+        .totals-table td {
+            padding: 5px;
+            border: none;
             text-align: right;
+        }
+        
+        .totals-table .total-row {
+            font-weight: bold;
+            border-top: 1px solid #000;
+            font-size: 12px;
+        }
+        
+        .payment-info {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
             margin-bottom: 40px;
         }
-        .total-amount {
-            font-size: 24px;
-            font-weight: bold;
-            color: #dc2626;
-            background-color: #f8f8f8;
-            padding: 15px;
-            border-radius: 8px;
-            display: inline-block;
+        
+        .payment-methods, .payment-terms {
+            width: 45%;
         }
+        
+        .payment-methods h4, .payment-terms h4 {
+            margin: 0 0 8px 0;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 20mm;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8px;
+            border-top: 1px solid #000;
+            padding-top: 10px;
+        }
+        
         .photos-section {
+            page-break-before: always;
             margin-top: 40px;
         }
+        
         .photos-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
+            justify-content: space-around;
             gap: 20px;
             margin-top: 20px;
         }
+        
         .photo-group {
             text-align: center;
+            width: 40%;
         }
+        
         .photo-group h3 {
-            color: #dc2626;
-            margin-bottom: 15px;
-        }
-        .photo {
-            max-width: 100%;
-            height: 200px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 2px solid #ddd;
-            margin-bottom: 10px;
-        }
-        .footer {
-            margin-top: 50px;
-            padding-top: 20px;
-            border-top: 2px solid #dc2626;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-        }
-        .work-details {
-            background-color: #f8f8f8;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        .work-details h3 {
-            color: #dc2626;
-            margin-top: 0;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
+            margin: 0 0 10px 0;
             font-size: 12px;
             font-weight: bold;
-            text-transform: uppercase;
         }
-        .status-paid {
-            background-color: #22c55e;
-            color: white;
+        
+        .photo {
+            max-width: 100%;
+            max-height: 150px;
+            border: 1px solid #000;
+            margin-bottom: 10px;
         }
-        .status-unpaid {
-            background-color: #ef4444;
-            color: white;
-        }
-        .status-pending {
-            background-color: #f59e0b;
-            color: white;
+        
+        .work-details {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #000;
+            background-color: #f9f9f9;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            ${logoBase64 ? `<img src="${logoBase64}" alt="MyJantes" class="logo">` : ""}
-            <div class="company-info">
-                <div class="company-name">MY JANTES</div>
-                <div><strong>46 RUE DE LA CONVENTION</strong></div>
-                <div><strong>62800 LIEVIN, France</strong></div>
-                <div style="margin-top: 8px;">SIREN: 913 678 199</div>
-                <div>SIRET: 913 678 199 00021</div>
-                <div>TVA: FR73913678199</div>
-                <div>APE: 4520A - Entretien véhicules</div>
-                <div style="margin-top: 8px;">Email: contact@myjantes.fr</div>
-                <div>Tél: +33 1 23 45 67 89</div>
+    <div class="header">
+        <div class="logo-section">
+            <div class="logo">🔧</div>
+            <div>
+                <div class="company-header">MY JANTES</div>
+                <div style="font-size: 8px;">Spécialiste Jantes</div>
             </div>
         </div>
-
-        <div class="invoice-title">
-            FACTURE N° ${invoice.id.substring(0, 8).toUpperCase()}
+        
+        <div class="document-info">
+            <div class="document-title">${documentTitle} - ${documentNumber}</div>
+            <div>Date de facturation: ${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</div>
+            <div>Échéance: ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}</div>
+            <div>Type d'opération: Opération mixte</div>
         </div>
+    </div>
 
-        <div class="invoice-info">
-            <div class="invoice-details">
-                <div class="detail-title">Détails de la facture</div>
-                <div class="detail-item"><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</div>
-                <div class="detail-item"><strong>Statut:</strong> 
-                    <span class="status-badge status-${invoice.status}">
-                        ${invoice.status === "paid" ? "Payée" : invoice.status === "unpaid" ? "Impayée" : "En attente"}
-                    </span>
-                </div>
-                ${invoice.paymentTerms ? `<div class="detail-item"><strong>Conditions:</strong> ${invoice.paymentTerms}</div>` : ''}
-            </div>
-            <div class="client-details">
-                <div class="detail-title">Facturation à</div>
-                <div class="detail-item"><strong>${invoice.user?.name || "Client"}</strong></div>
-                ${invoice.user?.clientType === "professionnel" && invoice.user?.companyName ? `
-                    <div class="detail-item"><strong>${invoice.user.companyName}</strong></div>
-                    ${invoice.user.companyAddress ? `<div class="detail-item">${invoice.user.companyAddress}</div>` : ''}
-                    ${invoice.user.companySiret ? `<div class="detail-item">SIRET: ${invoice.user.companySiret}</div>` : ''}
-                    ${invoice.user.companyVat ? `<div class="detail-item">TVA: ${invoice.user.companyVat}</div>` : ''}
-                ` : ''}
-                <div class="detail-item">${invoice.user?.email || ""}</div>
-                <div class="detail-item">${invoice.user?.phone || ""}</div>
-                ${invoice.user?.address && invoice.user?.clientType === "particulier" ? `<div class="detail-item">${invoice.user.address}</div>` : ''}
-            </div>
+    <div class="company-details">
+        <div class="company-info">
+            <h3>MY JANTES</h3>
+            <div>46 rue de la convention</div>
+            <div>62800 Lievin</div>
+            <div>0321408053</div>
+            <div>contact@myjantes.com</div>
+            <div>www.myjantes.fr</div>
         </div>
-
-        ${invoice.vehicleBrand || invoice.vehicleModel || invoice.vehiclePlate ? `
-        <div class="vehicle-info">
-            <div class="detail-title">Informations véhicule</div>
-            <div class="vehicle-details">
-                ${invoice.vehicleBrand && invoice.vehicleModel ? `<div class="detail-item"><strong>Véhicule:</strong> ${invoice.vehicleBrand} ${invoice.vehicleModel}</div>` : ''}
-                ${invoice.vehiclePlate ? `<div class="detail-item"><strong>Immatriculation:</strong> ${invoice.vehiclePlate}</div>` : ''}
-                ${invoice.vehicleYear ? `<div class="detail-item"><strong>Année:</strong> ${invoice.vehicleYear}</div>` : ''}
-            </div>
+        
+        <div class="client-info">
+            <div><strong>${(invoice.user?.name || "CLIENT").toUpperCase()}</strong></div>
+            ${invoice.user?.clientType === "professionnel" && invoice.user?.companyName ? `
+                <div><strong>${invoice.user.companyName}</strong></div>
+                ${invoice.user.companyAddress ? `<div>${invoice.user.companyAddress}</div>` : ''}
+                ${invoice.user.companySiret ? `<div>SIRET: ${invoice.user.companySiret}</div>` : ''}
+                ${invoice.user.companyVat ? `<div>TVA: ${invoice.user.companyVat}</div>` : ''}
+            ` : ''}
+            ${invoice.user?.email ? `<div>${invoice.user.email}</div>` : ''}
+            ${invoice.user?.phone ? `<div>${invoice.user.phone}</div>` : ''}
+            ${invoice.user?.address && invoice.user?.clientType !== "professionnel" ? `<div>${invoice.user.address}</div>` : ''}
         </div>
-        ` : ''}
+    </div>
 
-        ${
-            invoice.workDetails
-                ? `
-        <div class="work-details">
-            <h3>Détails des travaux</h3>
-            <p>${invoice.workDetails}</p>
-        </div>
-        `
-                : ""
-        }
+    ${invoice.workDetails ? `
+    <div class="work-details">
+        <h4>Détails du travail effectué:</h4>
+        <p>${invoice.workDetails}</p>
+    </div>
+    ` : ''}
 
-        <table class="services-table">
-            <thead>
+    <table class="services-table">
+        <thead>
+            <tr>
+                <th class="description-col">Description</th>
+                <th class="date-col">Date</th>
+                <th class="qty-col">Qté</th>
+                <th class="unit-col">Unité</th>
+                <th class="price-col">Prix unitaire</th>
+                <th class="vat-col">TVA</th>
+                <th class="amount-col">Montant</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${items.map(item => `
                 <tr>
-                    <th>Description</th>
-                    <th style="text-align: center; width: 80px;">Qté</th>
-                    <th style="text-align: right; width: 100px;">Prix unit.</th>
-                    <th style="text-align: right; width: 100px;">Total</th>
+                    <td class="description-col" style="text-align: left;">${item.description || invoice.description}</td>
+                    <td class="date-col">${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</td>
+                    <td class="qty-col">${(item.quantity || 1).toFixed(2)}</td>
+                    <td class="unit-col">pce</td>
+                    <td class="price-col">${(item.unitPrice || subtotal).toFixed(2)}€</td>
+                    <td class="vat-col">${vatRate.toFixed(2)} %</td>
+                    <td class="amount-col">${(item.total || subtotal).toFixed(2)}€</td>
                 </tr>
-            </thead>
-            <tbody>
-                ${items.map(item => `
-                    <tr>
-                        <td>${item.description}</td>
-                        <td style="text-align: center;">${item.quantity || 1}</td>
-                        <td style="text-align: right;">${(item.unitPrice || item.total || 0).toFixed(2)}€</td>
-                        <td style="text-align: right;"><strong>${(item.total || item.unitPrice || 0).toFixed(2)}€</strong></td>
-                    </tr>
-                `).join('')}
-            </tbody>
+            `).join('')}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <table class="totals-table">
+            <tr>
+                <td><strong>Total HT</strong></td>
+                <td><strong>${subtotal.toFixed(2)}€</strong></td>
+            </tr>
+            <tr>
+                <td><strong>TVA ${vatRate.toFixed(2)} %</strong></td>
+                <td><strong>${vatAmount.toFixed(2)}€</strong></td>
+            </tr>
+            <tr class="total-row">
+                <td><strong>Total TTC</strong></td>
+                <td><strong>${total.toFixed(2)}€</strong></td>
+            </tr>
         </table>
+    </div>
 
-        <div class="total-section">
-            <div style="text-align: right; margin-bottom: 20px;">
-                <div style="margin-bottom: 8px;"><strong>Sous-total HT:</strong> ${subtotal.toFixed(2)}€</div>
-                <div style="margin-bottom: 8px;"><strong>TVA (${vatRate}%):</strong> ${vatAmount.toFixed(2)}€</div>
-                <div class="total-amount" style="margin-top: 15px;">
-                    <strong>Total TTC: ${total.toFixed(2)}€</strong>
-                </div>
-            </div>
+    <div class="payment-info">
+        <div class="payment-methods">
+            <h4>Moyens de paiement:</h4>
+            <div>Banque: SOCIETE GENERALE</div>
+            <div>SWIFT/BIC: SOGEFRPP</div>
+            <div>IBAN: FR76 3000 3029 5800 0201 6936 525</div>
         </div>
+        
+        <div class="payment-terms">
+            <h4>Conditions de paiement:</h4>
+            <div>30 jours</div>
+        </div>
+    </div>
 
-        ${
-            invoice.photosBefore?.length || invoice.photosAfter?.length
-                ? `
-        <div class="photos-section">
-            <h2 style="color: #dc2626; text-align: center;">Photos des travaux</h2>
-            <div class="photos-grid">
-                ${
-                    invoice.photosBefore?.length
-                        ? `
+    ${invoice.photosBefore?.length || invoice.photosAfter?.length ? `
+    <div class="photos-section">
+        <h2 style="text-align: center; margin-bottom: 20px;">Photos des travaux</h2>
+        <div class="photos-grid">
+            ${invoice.photosBefore?.length ? `
                 <div class="photo-group">
                     <h3>Avant</h3>
-                    ${invoice.photosBefore
-                        .map(
-                            (photo) => `
-                        <img src="${photo}" alt="Photo avant" class="photo">
-                    `,
-                        )
-                        .join("")}
+                    ${invoice.photosBefore.map(photo => 
+                        `<img src="${photo}" alt="Photo avant" class="photo">`
+                    ).join('')}
                 </div>
-                `
-                        : ""
-                }
-                ${
-                    invoice.photosAfter?.length
-                        ? `
+            ` : ''}
+            
+            ${invoice.photosAfter?.length ? `
                 <div class="photo-group">
                     <h3>Après</h3>
-                    ${invoice.photosAfter
-                        .map(
-                            (photo) => `
-                        <img src="${photo}" alt="Photo après" class="photo">
-                    `,
-                        )
-                        .join("")}
+                    ${invoice.photosAfter.map(photo => 
+                        `<img src="${photo}" alt="Photo après" class="photo">`
+                    ).join('')}
                 </div>
-                `
-                        : ""
-                }
-            </div>
+            ` : ''}
         </div>
-        `
-                : ""
-        }
+    </div>
+    ` : ''}
 
-        <div class="footer">
-            <p><strong>MY JANTES</strong> - SAS au capital variable - SIREN: 913 678 199</p>
-            <p>46 RUE DE LA CONVENTION, 62800 LIEVIN - TVA: FR73913678199</p>
-            <p>Merci de votre confiance</p>
-        </div>
+    <div class="footer">
+        <div><strong>MY JANTES - SASU</strong></div>
+        <div>46 rue de la convention 62800 Lievin</div>
+        <div>Numéro de SIRET: 91367819900021 - Numéro de TVA FR73913678199</div>
     </div>
 </body>
 </html>
-    `;
+        `;
     }
 }
