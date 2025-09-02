@@ -3,6 +3,7 @@ import { AuthService } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
 import { useLocation } from "wouter";
 import { Calendar, FileText, User, Wrench } from "lucide-react";
+import logoUrl from "@/assets/logo-myjantes.png";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -52,7 +53,7 @@ export default function Home() {
 
   return (
     <div className="pb-24">
-      {/* Navigation Header */}
+      {/* Header with Logo */}
       <div className="px-6 py-4 border-b border-border">
         <div className="flex items-center justify-between">
           <div>
@@ -63,9 +64,12 @@ export default function Home() {
               Que souhaitez-vous faire aujourd'hui ?
             </p>
           </div>
-          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-            <User className="text-white" size={20} />
-          </div>
+          <img 
+            src={logoUrl} 
+            alt="MY JANTES" 
+            className="h-12 w-auto bg-white rounded-lg p-2 shadow-sm"
+            data-testid="logo-myjantes"
+          />
         </div>
       </div>
 

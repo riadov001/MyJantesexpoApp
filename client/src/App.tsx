@@ -57,17 +57,6 @@ function Router() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-sm mx-auto bg-background min-h-screen relative">
-        {/* Status Bar */}
-        <div className="h-11 flex items-center justify-between px-6 text-sm font-medium">
-          <span>9:41</span>
-          <div className="flex items-center space-x-1">
-            <i className="fas fa-signal text-xs"></i>
-            <i className="fas fa-wifi text-xs"></i>
-            <div className="w-6 h-3 border border-foreground rounded-sm">
-              <div className="w-4 h-1.5 bg-foreground rounded-sm m-0.5"></div>
-            </div>
-          </div>
-        </div>
 
         <Switch>
           <Route path="/login" component={Login} />

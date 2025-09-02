@@ -239,6 +239,10 @@ startxref
         .logo {
             max-height: 80px;
             max-width: 200px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .company-info {
             text-align: right;
