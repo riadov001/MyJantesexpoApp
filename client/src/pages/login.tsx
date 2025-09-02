@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AuthService } from "@/lib/auth";
 import { apiPost } from "@/lib/api";
 import { useLocation } from "wouter";
-import { Car } from "lucide-react";
+import logoUrl from "@/assets/logo.png";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -89,8 +89,13 @@ export default function Login() {
     <div className="px-6 py-8 min-h-screen flex flex-col justify-center">
       {/* Logo */}
       <div className="text-center mb-12">
-        <div className="w-24 h-24 bg-primary rounded-ios-xl mx-auto mb-6 flex items-center justify-center">
-          <Car className="text-4xl text-white" size={48} />
+        <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+          <img 
+            src={logoUrl} 
+            alt="MyJantes" 
+            className="w-full h-full object-contain"
+            data-testid="img-logo-login"
+          />
         </div>
         <h1 className="text-3xl font-bold mb-2">MyJantes</h1>
         <p className="text-muted-foreground">Votre expert en jantes et pneus</p>
