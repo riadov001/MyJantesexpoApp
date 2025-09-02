@@ -17,7 +17,6 @@ export default function History() {
 
   const { data: history, isLoading } = useQuery({
     queryKey: ["/api/history"],
-    queryFn: () => apiGet<HistoryData>("/api/history"),
   });
 
   const acceptQuoteMutation = useMutation({

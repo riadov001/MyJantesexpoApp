@@ -14,7 +14,6 @@ import {
 export default function Services() {
   const { data: services, isLoading, error } = useQuery({
     queryKey: ["/api/services"],
-    queryFn: () => apiGet<Service[]>("/api/services"),
   });
 
   if (isLoading) {

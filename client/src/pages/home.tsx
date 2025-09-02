@@ -11,7 +11,6 @@ export default function Home() {
 
   const { data: recentActivity } = useQuery({
     queryKey: ["/api/history"],
-    queryFn: () => apiGet<{ quotes: any[]; invoices: any[] }>("/api/history"),
   });
 
   const formatDate = (dateStr: string) => {

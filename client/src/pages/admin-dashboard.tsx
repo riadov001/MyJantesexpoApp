@@ -17,7 +17,6 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/admin/dashboard"],
-    queryFn: () => apiGet<DashboardStats>("/api/admin/dashboard"),
   });
 
   const formatCurrency = (amount: number) => {

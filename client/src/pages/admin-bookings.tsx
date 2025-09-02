@@ -14,7 +14,6 @@ export default function AdminBookings() {
 
   const { data: bookings, isLoading } = useQuery({
     queryKey: ["/api/admin/bookings"],
-    queryFn: () => apiGet<Booking[]>("/api/admin/bookings"),
   });
 
   const updateStatusMutation = useMutation({
