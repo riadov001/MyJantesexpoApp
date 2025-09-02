@@ -272,7 +272,7 @@ export default function AdminInvoices() {
               <Button
                 variant="outline" 
                 size="sm"
-                onClick={() => window.open(`/api/admin/invoices/${invoice.id}/pdf`, '_blank')}
+                onClick={() => window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')}
                 data-testid={`button-pdf-${invoice.id}`}
               >
                 <Download className="w-4 h-4 mr-1" />
