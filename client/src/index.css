@@ -102,6 +102,59 @@
   }
 }
 
+/* Responsive Design Utilities */
+.mobile-first-container {
+  @apply max-w-sm mx-auto;
+}
+
+.desktop-container {
+  @apply max-w-6xl mx-auto;
+}
+
+.responsive-container {
+  @apply max-w-sm mx-auto lg:max-w-6xl;
+}
+
+.responsive-grid {
+  @apply grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4;
+}
+
+.admin-layout {
+  @apply lg:flex lg:gap-6 lg:max-w-7xl lg:mx-auto lg:px-6;
+}
+
+.admin-sidebar {
+  @apply hidden lg:block lg:w-64 lg:shrink-0;
+}
+
+.admin-main {
+  @apply flex-1;
+}
+
+.desktop-card {
+  @apply lg:p-8 lg:rounded-3xl lg:border-2;
+}
+
+.desktop-grid-2 {
+  @apply lg:grid lg:grid-cols-2 lg:gap-8;
+}
+
+.desktop-grid-3 {
+  @apply lg:grid lg:grid-cols-3 lg:gap-6;
+}
+
+.desktop-form {
+  @apply lg:max-w-2xl;
+}
+
+.mobile-nav-hidden {
+  @apply lg:hidden;
+}
+
+.desktop-nav {
+  @apply hidden lg:block;
+}
+
 .ios-blur {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -125,7 +178,7 @@
 }
 
 .ios-card {
-  @apply bg-card rounded-2xl p-5 border border-border;
+  @apply bg-card rounded-2xl p-5 border border-border lg:p-6 lg:rounded-3xl lg:border-2;
 }
 
 .form-input {

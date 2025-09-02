@@ -21,6 +21,7 @@ import AdminWorkProgress from "@/pages/admin-work-progress";
 import AdminProfile from "@/pages/admin-profile";
 import AdminCalendar from "@/pages/admin-calendar";
 import BottomNavigation from "@/components/bottom-navigation";
+import DesktopNavigation from "@/components/desktop-navigation";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -73,7 +74,8 @@ function Router() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-sm mx-auto bg-background min-h-screen relative">
+      <DesktopNavigation />
+      <div className="responsive-container bg-background min-h-screen relative lg:max-w-none lg:px-6">
 
         <Switch>
           <Route path="/login" component={Login} />

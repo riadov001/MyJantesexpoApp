@@ -35,8 +35,12 @@ export const bookings = pgTable("bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   serviceId: varchar("service_id").references(() => services.id).notNull(),
-  date: text("date").notNull(),
-  timeSlot: text("time_slot").notNull(),
+  // Nouvelles colonnes pour plages horaires libres (optionnelles pour migration progressive)
+  startDateTime: timestamp("start_date_time"),
+  endDateTime: timestamp("end_date_time"),
+  // Anciennes colonnes maintenues pour compatibilité (seront supprimées plus tard)
+  date: text("date"),
+  timeSlot: text("time_slot"),
   vehicleBrand: text("vehicle_brand").notNull(),
   vehiclePlate: text("vehicle_plate").notNull(),
   notes: text("notes"),
@@ -179,6 +183,23 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
   userId: true,
   createdAt: true,
+  updatedAt: true,
+  lastModifiedBy: true,
+  googleCalendarEventId: true,
+  // Omettre les anciennes colonnes de compatibilité
+  date: true,
+  timeSlot: true,
+}).extend({
+  // Validation personnalisée pour les nouvelles colonnes
+  startDateTime: z.string().min(1, "Heure de début requise"),
+  endDateTime: z.string().min(1, "Heure de fin requise"),
+}).refine((data) => {
+  const start = new Date(data.startDateTime);
+  const end = new Date(data.endDateTime);
+  return start < end;
+}, {
+  message: "L'heure de fin doit être après l'heure de début",
+  path: ["endDateTime"],
 });
 
 export const insertQuoteSchema = createInsertSchema(quotes).omit({

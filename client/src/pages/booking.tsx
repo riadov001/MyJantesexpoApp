@@ -12,18 +12,18 @@ import { useToast } from "@/hooks/use-toast";
 import { apiGet, apiPost } from "@/lib/api";
 import { useLocation } from "wouter";
 
-const timeSlots = [
-  "9h00 - 10h30",
-  "11h00 - 12h30",
-  "14h00 - 15h30",
-  "16h00 - 17h30",
+// Créneaux suggérés pour aider l'utilisateur
+const suggestedTimes = [
+  { label: "Matin (9h - 12h)", start: "09:00", end: "12:00" },
+  { label: "Après-midi (14h - 17h)", start: "14:00", end: "17:00" },
+  { label: "Toute la journée (9h - 17h)", start: "09:00", end: "17:00" },
 ];
 
 export default function Booking() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
   const { data: services } = useQuery({
     queryKey: ["/api/services"],
@@ -33,8 +33,8 @@ export default function Booking() {
     resolver: zodResolver(insertBookingSchema),
     defaultValues: {
       serviceId: "",
-      date: "",
-      timeSlot: "",
+      startDateTime: "",
+      endDateTime: "",
       vehicleBrand: "",
       vehiclePlate: "",
       notes: "",
@@ -62,10 +62,14 @@ export default function Booking() {
   });
 
   const onSubmit = (data: InsertBooking) => {
-    createBookingMutation.mutate({
-      ...data,
-      timeSlot: selectedTimeSlot,
-    });
+    createBookingMutation.mutate(data);
+  };
+
+  const handleSuggestedTime = (start: string, end: string) => {
+    if (selectedDate) {
+      form.setValue("startDateTime", `${selectedDate}T${start}`);
+      form.setValue("endDateTime", `${selectedDate}T${end}`);
+    }
   };
 
   // Get today's date in YYYY-MM-DD format
@@ -107,7 +111,7 @@ export default function Booking() {
           {/* Date Selection */}
           <div>
             <Label htmlFor="date" className="block text-sm font-medium mb-2">
-              Date
+              Date de la prestation
             </Label>
             <Input
               id="date"
@@ -115,43 +119,76 @@ export default function Booking() {
               min={today}
               className="form-input"
               data-testid="input-date"
-              {...form.register("date")}
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                // Reset time fields when date changes
+                form.setValue("startDateTime", "");
+                form.setValue("endDateTime", "");
+              }}
             />
-            {form.formState.errors.date && (
-              <p className="text-sm text-destructive mt-1">
-                {form.formState.errors.date.message}
-              </p>
-            )}
           </div>
 
-          {/* Time Slot Selection */}
-          <div>
-            <Label className="block text-sm font-medium mb-2">Créneau</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {timeSlots.map((slot, index) => (
-                <button
-                  key={slot}
-                  type="button"
-                  className={`p-3 border rounded-ios text-sm transition-colors ${
-                    selectedTimeSlot === slot
-                      ? "border-primary bg-secondary"
-                      : "border-border hover:border-primary hover:bg-secondary"
-                  }`}
-                  onClick={() => {
-                    setSelectedTimeSlot(slot);
-                    form.setValue("timeSlot", slot);
-                  }}
-                  data-testid={`button-timeslot-${index}`}
-                >
-                  {slot}
-                </button>
-              ))}
+          {/* Créneaux suggérés */}
+          {selectedDate && (
+            <div>
+              <Label className="block text-sm font-medium mb-2">Créneaux suggérés (optionnel)</Label>
+              <div className="grid grid-cols-1 gap-2">
+                {suggestedTimes.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="p-3 border rounded-xl text-sm transition-colors border-border hover:border-primary hover:bg-secondary text-left"
+                    onClick={() => handleSuggestedTime(suggestion.start, suggestion.end)}
+                    data-testid={`button-suggestion-${index}`}
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            {form.formState.errors.timeSlot && (
-              <p className="text-sm text-destructive mt-1">
-                {form.formState.errors.timeSlot.message}
-              </p>
-            )}
+          )}
+
+          {/* Heure de début et fin */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="startDateTime" className="block text-sm font-medium mb-2">
+                Heure de début
+              </Label>
+              <Input
+                id="startDateTime"
+                type="datetime-local"
+                min={selectedDate ? `${selectedDate}T08:00` : undefined}
+                max={selectedDate ? `${selectedDate}T18:00` : undefined}
+                className="form-input"
+                data-testid="input-start-time"
+                {...form.register("startDateTime")}
+              />
+              {form.formState.errors.startDateTime && (
+                <p className="text-sm text-destructive mt-1">
+                  {form.formState.errors.startDateTime.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="endDateTime" className="block text-sm font-medium mb-2">
+                Heure de fin
+              </Label>
+              <Input
+                id="endDateTime"
+                type="datetime-local"
+                min={selectedDate ? `${selectedDate}T08:00` : undefined}
+                max={selectedDate ? `${selectedDate}T18:00` : undefined}
+                className="form-input"
+                data-testid="input-end-time"
+                {...form.register("endDateTime")}
+              />
+              {form.formState.errors.endDateTime && (
+                <p className="text-sm text-destructive mt-1">
+                  {form.formState.errors.endDateTime.message}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Vehicle Info */}

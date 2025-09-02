@@ -37,7 +37,7 @@ export default function BottomNavigation() {
   });
 
   return (
-    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm bg-card border-t border-border ios-blur">
+    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm bg-card border-t border-border ios-blur mobile-nav-hidden">
       <div className="flex items-center justify-around py-2 px-6">
         {navItems.map((item) => {
           const isActive = location === item.path || (item.path === "/admin" && location.startsWith("/admin"));
