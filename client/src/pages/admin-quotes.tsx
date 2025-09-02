@@ -13,7 +13,7 @@ export default function AdminQuotes() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: quotes, isLoading } = useQuery({
+  const { data: quotes, isLoading } = useQuery<Quote[]>({
     queryKey: ["/api/admin/quotes"],
   });
 
@@ -117,14 +117,17 @@ export default function AdminQuotes() {
                     {quote.description}
                   </span>
                 </div>
-                {quote.photos && Array.isArray(quote.photos) && (quote.photos as string[]).length > 0 && (
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Image className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      {(quote.photos as string[]).length} photo{(quote.photos as string[]).length > 1 ? 's' : ''} jointe{(quote.photos as string[]).length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  const photos = quote.photos as string[] | undefined;
+                  return photos && Array.isArray(photos) && photos.length > 0 ? (
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Image className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        {photos.length} photo{photos.length > 1 ? 's' : ''} jointe{photos.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
                 {quote.amount && (
                   <div className="flex items-center space-x-2 mb-2">
                     <Euro className="w-4 h-4 text-green-400" />
@@ -177,20 +180,52 @@ export default function AdminQuotes() {
             )}
 
             {quote.status !== "pending" && (
-              <div className="flex items-center space-x-2 border-t border-border pt-4">
-                <Select onValueChange={(status) => {
-                  updateStatusMutation.mutate({ id: quote.id, status });
-                }}>
-                  <SelectTrigger className="flex-1" data-testid={`select-status-${quote.id}`}>
-                    <SelectValue placeholder="Changer le statut" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="sent">Envoyé</SelectItem>
-                    <SelectItem value="approved">Approuvé</SelectItem>
-                    <SelectItem value="rejected">Rejeté</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-3 border-t border-border pt-4">
+                <div className="flex items-center space-x-2">
+                  <Select onValueChange={(status) => {
+                    updateStatusMutation.mutate({ id: quote.id, status });
+                  }}>
+                    <SelectTrigger className="flex-1" data-testid={`select-status-${quote.id}`}>
+                      <SelectValue placeholder="Changer le statut" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">En attente</SelectItem>
+                      <SelectItem value="sent">Envoyé</SelectItem>
+                      <SelectItem value="approved">Approuvé</SelectItem>
+                      <SelectItem value="rejected">Rejeté</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {quote.amount && (
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => window.open(`/api/quotes/${quote.id}/pdf`, '_blank')}
+                      data-testid={`button-download-pdf-${quote.id}`}
+                    >
+                      📄 PDF Devis
+                    </Button>
+                    {quote.status === "approved" && (
+                      <Button 
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          // Ici on peut ajouter la conversion en facture plus tard
+                          toast({
+                            title: "Conversion en facture",
+                            description: "Fonctionnalité en cours de développement",
+                          });
+                        }}
+                        data-testid={`button-convert-invoice-${quote.id}`}
+                      >
+                        ✅ Facturer
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
