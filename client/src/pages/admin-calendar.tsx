@@ -1,402 +1,332 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getDay } from "date-fns";
+import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Calendar, 
-  Clock, 
-  User, 
-  Car, 
-  MapPin, 
-  Settings,
-  Plus,
-  CheckCircle,
-  AlertCircle
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings, Calendar as CalendarIcon, Users } from "lucide-react";
+import type { Booking, TimeSlotConfig } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
-interface Booking {
-  id: string;
-  userId: string;
-  date: string;
-  timeSlot: string;
-  vehicleBrand: string;
-  vehiclePlate: string;
-  status: string;
-  assignedEmployee?: string;
-  estimatedDuration?: number;
-  notes?: string;
-  createdAt: string;
+interface CalendarData {
+  bookings: Booking[];
+  configs: TimeSlotConfig[];
 }
 
-interface Employee {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
-interface CalendarBooking extends Booking {
-  user?: { name: string; email: string };
-  assignedEmployeeName?: string;
-}
+const TIME_SLOTS = [
+  "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00"
+];
 
 export default function AdminCalendar() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [configData, setConfigData] = useState({
+    maxCapacity: 2,
+    isActive: true,
+    reason: "",
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<CalendarBooking | null>(null);
-  const [assignmentData, setAssignmentData] = useState({
-    employeeId: "",
-    notes: ""
+
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  
+  const { data: calendarData, isLoading } = useQuery<CalendarData>({
+    queryKey: ["/api/admin/calendar-data", {
+      startDate: format(monthStart, "yyyy-MM-dd"),
+      endDate: format(monthEnd, "yyyy-MM-dd"),
+    }],
   });
 
-  const { data: bookings, isLoading: bookingsLoading } = useQuery({
-    queryKey: ["/api/admin/bookings"],
-  });
+  const configMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (selectedDate && selectedTimeSlot) {
+        const dateStr = format(selectedDate, "yyyy-MM-dd");
+        const existingConfig = calendarData?.configs.find(
+          c => c.date === dateStr && c.timeSlot === selectedTimeSlot
+        );
 
-  const { data: employees } = useQuery({
-    queryKey: ["/api/admin/employees"],
-  });
-
-  const { data: users } = useQuery({
-    queryKey: ["/api/admin/users"],
-  });
-
-  const assignEmployeeMutation = useMutation({
-    mutationFn: async (data: { bookingId: string; employeeId: string; notes: string }) => {
-      const response = await fetch("/api/admin/assign-employee", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Erreur lors de l'assignation");
-      return response.json();
+        if (existingConfig) {
+          return apiRequest(`/api/admin/time-slot-configs/${dateStr}/${selectedTimeSlot}`, {
+            method: "PUT",
+            body: data,
+          });
+        } else {
+          return apiRequest("/api/admin/time-slot-configs", {
+            method: "POST",
+            body: {
+              date: dateStr,
+              timeSlot: selectedTimeSlot,
+              ...data,
+            },
+          });
+        }
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/calendar-data"] });
+      setConfigDialogOpen(false);
       toast({
-        title: "Employé assigné",
-        description: "L'employé a été assigné avec succès à cette réservation.",
+        title: "Configuration mise à jour",
+        description: "La configuration du créneau a été sauvegardée.",
       });
-      setIsAssignDialogOpen(false);
-      setSelectedBooking(null);
-      setAssignmentData({ employeeId: "", notes: "" });
     },
-    onError: (error: any) => {
+    onError: () => {
       toast({
         title: "Erreur",
-        description: error.message || "Impossible d'assigner l'employé",
+        description: "Impossible de sauvegarder la configuration.",
         variant: "destructive",
       });
     },
   });
 
-  // Créer un calendrier enrichi avec les données utilisateurs
-  const enrichedBookings: CalendarBooking[] = (bookings || []).map((booking: Booking) => {
-    const user = (users || []).find((u: any) => u.id === booking.userId);
-    const assignedEmployee = (employees || []).find((emp: Employee) => emp.id === booking.assignedEmployee);
+  const getBookingsForDateAndTime = (date: Date, timeSlot: string) => {
+    if (!calendarData) return [];
+    const dateStr = format(date, "yyyy-MM-dd");
+    return calendarData.bookings.filter(
+      booking => booking.date === dateStr && booking.timeSlot === timeSlot
+    );
+  };
+
+  const getConfigForDateAndTime = (date: Date, timeSlot: string) => {
+    if (!calendarData) return null;
+    const dateStr = format(date, "yyyy-MM-dd");
+    return calendarData.configs.find(
+      config => config.date === dateStr && config.timeSlot === timeSlot
+    );
+  };
+
+  const openConfigDialog = (date: Date, timeSlot: string) => {
+    setSelectedDate(date);
+    setSelectedTimeSlot(timeSlot);
     
-    return {
-      ...booking,
-      user: user ? { name: user.name, email: user.email } : undefined,
-      assignedEmployeeName: assignedEmployee?.name,
-    };
-  });
-
-  // Filtrer les réservations par date sélectionnée
-  const bookingsForDate = enrichedBookings.filter(booking => 
-    booking.date === selectedDate
-  );
-
-  // Grouper par créneaux horaires
-  const timeSlots = [
-    "08:00", "09:00", "10:00", "11:00", "12:00", 
-    "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"
-  ];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "confirmed":
-        return "bg-green-500";
-      case "pending":
-        return "bg-yellow-500";
-      case "cancelled":
-        return "bg-red-500";
-      case "completed":
-        return "bg-blue-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "confirmed":
-        return "Confirmée";
-      case "pending":
-        return "En attente";
-      case "cancelled":
-        return "Annulée";
-      case "completed":
-        return "Terminée";
-      default:
-        return status;
-    }
-  };
-
-  const handleAssignEmployee = () => {
-    if (!selectedBooking || !assignmentData.employeeId) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez sélectionner un employé",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    assignEmployeeMutation.mutate({
-      bookingId: selectedBooking.id,
-      employeeId: assignmentData.employeeId,
-      notes: assignmentData.notes,
+    const existingConfig = getConfigForDateAndTime(date, timeSlot);
+    setConfigData({
+      maxCapacity: existingConfig?.maxCapacity || 2,
+      isActive: existingConfig?.isActive ?? true,
+      reason: existingConfig?.reason || "",
     });
+    
+    setConfigDialogOpen(true);
   };
 
-  if (bookingsLoading) {
+  const handleSaveConfig = () => {
+    configMutation.mutate(configData);
+  };
+
+  const previousMonth = () => {
+    setCurrentDate(subMonths(currentDate, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(addMonths(currentDate, 1));
+  };
+
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  
+  // Create calendar grid starting from Monday
+  const calendarDays = [];
+  const firstDayOfWeek = getDay(monthStart) === 0 ? 6 : getDay(monthStart) - 1; // Convert Sunday=0 to Monday=0
+  
+  // Add empty cells for days before month start
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    calendarDays.push(null);
+  }
+  
+  // Add month days
+  calendarDays.push(...monthDays);
+
+  if (isLoading) {
     return (
-      <div className="pb-24 px-6 py-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-secondary rounded w-48"></div>
-          <div className="h-64 bg-secondary rounded-ios"></div>
-        </div>
+      <div className="p-4">
+        <div className="text-center">Chargement du calendrier...</div>
       </div>
     );
   }
 
   return (
-    <div className="pb-24">
-      <div className="px-6 py-4 border-b border-border">
-        <h2 className="text-xl font-bold" data-testid="admin-calendar-title">
+    <div className="p-4 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <CalendarIcon className="h-6 w-6" />
           Calendrier des Réservations
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Gestion et assignation des réservations par date
-        </p>
+        </h1>
+        
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={previousMonth}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-lg font-medium min-w-[200px] text-center">
+            {format(currentDate, "MMMM yyyy", { locale: fr })}
+          </span>
+          <Button variant="outline" size="sm" onClick={nextMonth}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      <div className="px-6 py-6 space-y-6">
-        {/* Sélecteur de date */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Sélection de Date
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full"
-            />
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-7 gap-1">
+        {/* Headers */}
+        {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day) => (
+          <div key={day} className="p-2 text-center font-medium text-sm text-gray-500">
+            {day}
+          </div>
+        ))}
 
-        {/* Vue du calendrier pour la date sélectionnée */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>
-                Réservations du {new Date(selectedDate).toLocaleDateString("fr-FR", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric"
-                })}
-              </span>
-              <Badge variant="outline">
-                {bookingsForDate.length} réservation{bookingsForDate.length > 1 ? 's' : ''}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {bookingsForDate.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Aucune réservation pour cette date</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {timeSlots.map((timeSlot) => {
-                  const slotBookings = bookingsForDate.filter(b => b.timeSlot === timeSlot);
+        {/* Calendar days */}
+        {calendarDays.map((day, index) => (
+          <Card key={index} className={`min-h-[120px] ${day && isSameMonth(day, currentDate) ? "bg-white" : "bg-gray-50"}`}>
+            <CardContent className="p-2">
+              {day && (
+                <>
+                  <div className={`text-sm font-medium mb-2 ${isSameDay(day, new Date()) ? "text-red-600" : ""}`}>
+                    {format(day, "d")}
+                  </div>
                   
-                  return (
-                    <div key={timeSlot} className="border-l-4 border-primary pl-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium">{timeSlot}</span>
-                        {slotBookings.length === 0 && (
-                          <Badge variant="outline" className="text-xs">Libre</Badge>
-                        )}
-                      </div>
+                  <div className="space-y-1">
+                    {TIME_SLOTS.slice(0, 4).map((timeSlot) => {
+                      const bookings = getBookingsForDateAndTime(day, timeSlot);
+                      const config = getConfigForDateAndTime(day, timeSlot);
+                      const maxCapacity = config?.maxCapacity || 2;
+                      const isSlotActive = config?.isActive ?? true;
                       
-                      {slotBookings.map((booking) => (
+                      return (
                         <div
-                          key={booking.id}
-                          className="bg-secondary rounded-ios p-4 mb-2"
+                          key={timeSlot}
+                          className={`p-1 rounded text-xs cursor-pointer transition-colors ${
+                            !isSlotActive 
+                              ? "bg-gray-200 text-gray-500" 
+                              : bookings.length >= maxCapacity
+                                ? "bg-red-100 text-red-800"
+                                : bookings.length > 0
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-green-100 text-green-800 hover:bg-green-200"
+                          }`}
+                          onClick={() => openConfigDialog(day, timeSlot)}
+                          data-testid={`time-slot-${format(day, "yyyy-MM-dd")}-${timeSlot}`}
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-3 h-3 rounded-full ${getStatusColor(booking.status)}`}></div>
-                              <span className="font-medium">{getStatusText(booking.status)}</span>
+                          <div className="flex items-center justify-between">
+                            <span>{timeSlot}</span>
+                            <div className="flex items-center gap-1">
+                              {bookings.length > 0 && (
+                                <Users className="h-3 w-3" />
+                              )}
+                              <span>{bookings.length}/{maxCapacity}</span>
                             </div>
-                            {!booking.assignedEmployee && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedBooking(booking);
-                                  setIsAssignDialogOpen(true);
-                                }}
-                                data-testid={`button-assign-${booking.id}`}
-                              >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Assigner
-                              </Button>
-                            )}
                           </div>
-
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <User className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm">
-                                {booking.user?.name || "Client inconnu"} ({booking.user?.email})
-                              </span>
+                          {!isSlotActive && config?.reason && (
+                            <div className="text-xs text-gray-400 truncate">
+                              {config.reason}
                             </div>
-                            
-                            <div className="flex items-center gap-2">
-                              <Car className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm">
-                                {booking.vehicleBrand} - {booking.vehiclePlate}
-                              </span>
-                            </div>
-
-                            {booking.assignedEmployeeName && (
-                              <div className="flex items-center gap-2">
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                                <span className="text-sm">
-                                  Assigné à {booking.assignedEmployeeName}
-                                </span>
-                              </div>
-                            )}
-
-                            {booking.estimatedDuration && (
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-sm">
-                                  Durée estimée: {booking.estimatedDuration} minutes
-                                </span>
-                              </div>
-                            )}
-
-                            {booking.notes && (
-                              <div className="text-sm text-muted-foreground mt-2">
-                                <strong>Notes:</strong> {booking.notes}
-                              </div>
-                            )}
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                    
+                    {TIME_SLOTS.length > 4 && (
+                      <div className="text-xs text-gray-400 text-center">
+                        +{TIME_SLOTS.length - 4} créneaux
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Configuration Dialog */}
+      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Configuration du Créneau
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedDate && selectedTimeSlot && (
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                {format(selectedDate, "EEEE d MMMM yyyy", { locale: fr })} à {selectedTimeSlot}
               </div>
-            )}
-          </CardContent>
-        </Card>
+              
+              <div className="space-y-2">
+                <Label htmlFor="maxCapacity">Capacité maximale</Label>
+                <Input
+                  id="maxCapacity"
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={configData.maxCapacity}
+                  onChange={(e) => setConfigData(prev => ({ 
+                    ...prev, 
+                    maxCapacity: parseInt(e.target.value) || 0 
+                  }))}
+                  data-testid="input-max-capacity"
+                />
+              </div>
 
-        {/* Dialog d'assignation d'employé */}
-        <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Assigner un Employé</DialogTitle>
-            </DialogHeader>
-            
-            {selectedBooking && (
-              <div className="space-y-4">
-                <div className="bg-secondary p-3 rounded-ios">
-                  <p className="text-sm font-medium">Réservation</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedBooking.user?.name} - {selectedBooking.date} à {selectedBooking.timeSlot}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedBooking.vehicleBrand} ({selectedBooking.vehiclePlate})
-                  </p>
-                </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isActive"
+                  checked={configData.isActive}
+                  onCheckedChange={(checked) => setConfigData(prev => ({ 
+                    ...prev, 
+                    isActive: checked 
+                  }))}
+                  data-testid="switch-is-active"
+                />
+                <Label htmlFor="isActive">Créneau actif</Label>
+              </div>
 
-                <div>
-                  <label className="text-sm font-medium">Employé</label>
-                  <Select
-                    value={assignmentData.employeeId}
-                    onValueChange={(value) => 
-                      setAssignmentData(prev => ({ ...prev, employeeId: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un employé" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(employees || []).map((employee: Employee) => (
-                        <SelectItem key={employee.id} value={employee.id}>
-                          {employee.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Notes (optionnel)</label>
+              {!configData.isActive && (
+                <div className="space-y-2">
+                  <Label htmlFor="reason">Raison de la désactivation</Label>
                   <Textarea
-                    value={assignmentData.notes}
-                    onChange={(e) => 
-                      setAssignmentData(prev => ({ ...prev, notes: e.target.value }))
-                    }
-                    placeholder="Instructions spéciales pour cet employé..."
-                    rows={3}
+                    id="reason"
+                    placeholder="Ex: Congé, formation, maintenance..."
+                    value={configData.reason}
+                    onChange={(e) => setConfigData(prev => ({ 
+                      ...prev, 
+                      reason: e.target.value 
+                    }))}
+                    data-testid="textarea-reason"
                   />
                 </div>
+              )}
 
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleAssignEmployee}
-                    disabled={assignEmployeeMutation.isPending || !assignmentData.employeeId}
-                    className="flex-1"
-                    data-testid="button-confirm-assignment"
-                  >
-                    {assignEmployeeMutation.isPending ? "Assignation..." : "Assigner"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsAssignDialogOpen(false)}
-                    className="flex-1"
-                  >
-                    Annuler
-                  </Button>
-                </div>
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setConfigDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  onClick={handleSaveConfig}
+                  disabled={configMutation.isPending}
+                  data-testid="button-save"
+                >
+                  {configMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
+                </Button>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
