@@ -466,37 +466,62 @@ export default function AdminCalendar() {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      {/* Barre d'outils */}
-      <div className="flex items-center justify-between p-4 border-b bg-white shadow-sm">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold flex items-center gap-2">
+      {/* Barre d'outils - Responsive */}
+      <div className={`${isMobile ? 'flex-col space-y-3 p-3' : 'flex items-center justify-between p-4'} border-b bg-white shadow-sm`}>
+        <div className={`flex ${isMobile ? 'flex-col space-y-3' : 'items-center gap-4'}`}>
+          <h1 className={`${isMobile ? 'text-lg text-center' : 'text-xl'} font-semibold flex items-center ${isMobile ? 'justify-center' : ''} gap-2`}>
             <CalendarIcon className="h-5 w-5" />
             Calendrier
           </h1>
           
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={navigatePrevious}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={goToToday}>
-              Aujourd'hui
-            </Button>
-            <Button variant="outline" size="sm" onClick={navigateNext}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          <span className="text-lg font-medium">
-            {isWeekView 
-              ? `${format(startDate, "d MMM", { locale: fr })} - ${format(endDate, "d MMM yyyy", { locale: fr })}`
-              : format(currentDate, "MMMM yyyy", { locale: fr })
-            }
-          </span>
+          {isMobile ? (
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <Button variant="outline" size="sm" onClick={navigatePrevious}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToToday} className="px-3">
+                  Aujourd'hui
+                </Button>
+                <Button variant="outline" size="sm" onClick={navigateNext}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="text-center text-sm font-medium text-gray-700">
+                {isWeekView 
+                  ? `${format(startDate, "d MMM", { locale: fr })} - ${format(endDate, "d MMM yyyy", { locale: fr })}`
+                  : format(currentDate, "MMMM yyyy", { locale: fr })
+                }
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={navigatePrevious}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToToday}>
+                  Aujourd'hui
+                </Button>
+                <Button variant="outline" size="sm" onClick={navigateNext}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <span className="text-lg font-medium">
+                {isWeekView 
+                  ? `${format(startDate, "d MMM", { locale: fr })} - ${format(endDate, "d MMM yyyy", { locale: fr })}`
+                  : format(currentDate, "MMMM yyyy", { locale: fr })
+                }
+              </span>
+            </>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center gap-2'}`}>
           <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className={isMobile ? 'w-full' : 'w-32'}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -510,7 +535,7 @@ export default function AdminCalendar() {
             size="sm" 
             onClick={() => setSyncDialogOpen(true)}
             data-testid="button-sync-google"
-            className={googleStatus?.connected ? "border-green-500 text-green-600" : ""}
+            className={`${googleStatus?.connected ? "border-green-500 text-green-600" : ""} ${isMobile ? 'w-full justify-center' : ''}`}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Google Agenda
@@ -526,9 +551,9 @@ export default function AdminCalendar() {
         {isWeekView ? renderWeekView() : renderMonthView()}
       </div>
 
-      {/* Dialog de configuration de créneau */}
+      {/* Dialog de configuration de créneau - Responsive */}
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
-        <DialogContent>
+        <DialogContent className={isMobile ? 'w-[95vw] max-w-[95vw]' : ''}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
@@ -593,11 +618,12 @@ export default function AdminCalendar() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-4">
+              <div className={`${isMobile ? 'flex flex-col space-y-2' : 'flex justify-end gap-2'} pt-4`}>
                 <Button 
                   variant="outline" 
                   onClick={() => setConfigDialogOpen(false)}
                   data-testid="button-cancel"
+                  className={isMobile ? 'w-full' : ''}
                 >
                   Annuler
                 </Button>
@@ -605,6 +631,7 @@ export default function AdminCalendar() {
                   onClick={handleSaveConfig}
                   disabled={configMutation.isPending}
                   data-testid="button-save"
+                  className={isMobile ? 'w-full' : ''}
                 >
                   {configMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
                 </Button>
@@ -614,9 +641,9 @@ export default function AdminCalendar() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de synchronisation Google Calendar */}
+      {/* Dialog de synchronisation Google Calendar - Responsive */}
       <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-        <DialogContent>
+        <DialogContent className={isMobile ? 'w-[95vw] max-w-[95vw]' : ''}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5" />
@@ -658,16 +685,17 @@ export default function AdminCalendar() {
               </>
             )}
 
-            <div className="flex justify-end gap-2">
+            <div className={`${isMobile ? 'flex flex-col space-y-2' : 'flex justify-end gap-2'}`}>
               <Button 
                 variant="outline" 
                 onClick={() => setSyncDialogOpen(false)}
+                className={isMobile ? 'w-full' : ''}
               >
                 Annuler
               </Button>
               <Button 
                 onClick={handleGoogleCalendarSync}
-                className={googleStatus?.connected ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
+                className={`${googleStatus?.connected ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"} ${isMobile ? 'w-full' : ''}`}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 {googleStatus?.connected ? "Reconnecter" : "Connecter Google Agenda"}
