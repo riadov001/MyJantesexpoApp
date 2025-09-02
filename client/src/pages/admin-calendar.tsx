@@ -170,18 +170,50 @@ export default function AdminCalendar() {
     setCurrentDate(new Date());
   };
 
+  const { data: googleStatus } = useQuery({
+    queryKey: ["/api/google/status"],
+    queryFn: async () => {
+      const response = await fetch("/api/google/status", {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('myjantes_token')}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to check Google status');
+      return response.json();
+    },
+  });
+
   const handleGoogleCalendarSync = async () => {
     try {
-      // Placeholder pour la synchronisation Google Calendar
-      toast({
-        title: "Synchronisation Google Calendar",
-        description: "Fonctionnalité en cours de développement",
-      });
+      if (!googleStatus?.connected) {
+        // Redirect to Google OAuth
+        const response = await fetch("/api/google/auth", {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('myjantes_token')}`,
+          },
+        });
+        
+        if (response.ok) {
+          const { authUrl } = await response.json();
+          window.open(authUrl, '_blank', 'width=500,height=600');
+          
+          toast({
+            title: "Connexion Google Calendar",
+            description: "Veuillez autoriser l'accès dans la nouvelle fenêtre",
+          });
+        }
+      } else {
+        toast({
+          title: "Google Calendar",
+          description: "Déjà connecté à Google Calendar",
+        });
+      }
+      
       setSyncDialogOpen(false);
     } catch (error) {
       toast({
         title: "Erreur de synchronisation",
-        description: "Impossible de synchroniser avec Google Calendar",
+        description: "Impossible de se connecter à Google Calendar",
         variant: "destructive",
       });
     }
@@ -406,9 +438,13 @@ export default function AdminCalendar() {
             size="sm" 
             onClick={() => setSyncDialogOpen(true)}
             data-testid="button-sync-google"
+            className={googleStatus?.connected ? "border-green-500 text-green-600" : ""}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Google Agenda
+            {googleStatus?.connected && (
+              <span className="ml-2 w-2 h-2 bg-green-500 rounded-full"></span>
+            )}
           </Button>
         </div>
       </div>
@@ -520,19 +556,35 @@ export default function AdminCalendar() {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">Fonctionnalités de synchronisation :</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Export automatique des réservations vers Google Agenda</li>
-                <li>• Synchronisation bidirectionnelle des créneaux</li>
-                <li>• Notifications de conflits d'horaires</li>
-                <li>• Gestion des invitations clients</li>
-              </ul>
-            </div>
-            
-            <div className="text-sm text-gray-600">
-              Pour activer la synchronisation, vous devez d'abord connecter votre compte Google.
-            </div>
+            {googleStatus?.connected ? (
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h4 className="font-medium text-green-900 mb-2">✅ Google Calendar connecté</h4>
+                <p className="text-sm text-green-800">
+                  Vos réservations peuvent maintenant être synchronisées automatiquement avec Google Calendar.
+                </p>
+                <ul className="text-sm text-green-700 space-y-1 mt-2">
+                  <li>• Création automatique d'événements pour les nouvelles réservations</li>
+                  <li>• Invitation automatique des clients</li>
+                  <li>• Rappels configurés automatiquement</li>
+                </ul>
+              </div>
+            ) : (
+              <>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Fonctionnalités de synchronisation :</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Export automatique des réservations vers Google Agenda</li>
+                    <li>• Synchronisation bidirectionnelle des créneaux</li>
+                    <li>• Notifications de conflits d'horaires</li>
+                    <li>• Gestion des invitations clients</li>
+                  </ul>
+                </div>
+                
+                <div className="text-sm text-gray-600">
+                  Pour activer la synchronisation, vous devez d'abord connecter votre compte Google.
+                </div>
+              </>
+            )}
 
             <div className="flex justify-end gap-2">
               <Button 
@@ -543,10 +595,10 @@ export default function AdminCalendar() {
               </Button>
               <Button 
                 onClick={handleGoogleCalendarSync}
-                className="bg-blue-600 hover:bg-blue-700"
+                className={googleStatus?.connected ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Connecter Google Agenda
+                {googleStatus?.connected ? "Reconnecter" : "Connecter Google Agenda"}
               </Button>
             </div>
           </div>

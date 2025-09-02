@@ -36,6 +36,7 @@ export const bookings = pgTable("bookings", {
   assignedEmployee: varchar("assigned_employee").references(() => users.id),
   estimatedDuration: integer("estimated_duration"), // en minutes
   lastModifiedBy: varchar("last_modified_by").references(() => users.id),
+  googleCalendarEventId: text("google_calendar_event_id"), // ID de l'événement Google Calendar
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -103,6 +104,7 @@ export const adminSettings = pgTable("admin_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   key: text("key").notNull().unique(),
   value: text("value").notNull(),
+  googleCalendarTokens: text("google_calendar_tokens"), // Tokens OAuth Google Calendar
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
