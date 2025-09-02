@@ -16,6 +16,14 @@ interface CreateInvoiceData {
   amount: string;
   description: string;
   workDetails?: string;
+  vehicleBrand?: string;
+  vehicleModel?: string;
+  vehiclePlate?: string;
+  vehicleYear?: string;
+  subtotal?: string;
+  vatRate?: string;
+  items?: Array<{description: string, quantity: number, unitPrice: number, total: number}>;
+  paymentTerms?: string;
 }
 
 export default function AdminInvoices() {
@@ -23,7 +31,21 @@ export default function AdminInvoices() {
     userId: "",
     amount: "",
     description: "",
-    workDetails: ""
+    workDetails: "",
+    vehicleBrand: "",
+    vehicleModel: "",
+    vehiclePlate: "",
+    vehicleYear: "",
+    subtotal: "",
+    vatRate: "20.00",
+    items: [],
+    paymentTerms: "Paiement à réception",
+  });
+
+  const [currentItem, setCurrentItem] = useState({
+    description: "",
+    quantity: 1,
+    unitPrice: 0,
   });
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [notificationComment, setNotificationComment] = useState("");
@@ -48,7 +70,20 @@ export default function AdminInvoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
       toast({ title: "Facture créée", description: "La facture a été créée avec succès." });
-      setNewInvoice({ userId: "", amount: "", description: "", workDetails: "" });
+      setNewInvoice({ 
+        userId: "", 
+        amount: "", 
+        description: "", 
+        workDetails: "",
+        vehicleBrand: "",
+        vehicleModel: "",
+        vehiclePlate: "",
+        vehicleYear: "",
+        subtotal: "",
+        vatRate: "20.00",
+        items: [],
+        paymentTerms: "Paiement à réception",
+      });
       setIsCreateModalOpen(false);
     },
     onError: (error: any) => {
@@ -208,43 +243,230 @@ MyJantes`;
                 Nouvelle
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Créer une facture</DialogTitle>
+                <DialogTitle>Créer une facture complète</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <Select onValueChange={(value) => setNewInvoice({...newInvoice, userId: value})}>
-                  <SelectTrigger data-testid="select-user">
-                    <SelectValue placeholder="Sélectionner un client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users?.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  placeholder="Montant en €"
-                  value={newInvoice.amount}
-                  onChange={(e) => setNewInvoice({...newInvoice, amount: e.target.value})}
-                  data-testid="input-amount"
-                />
-                <Textarea
-                  placeholder="Description de la facture"
-                  value={newInvoice.description}
-                  onChange={(e) => setNewInvoice({...newInvoice, description: e.target.value})}
-                  data-testid="textarea-description"
-                />
+              <div className="space-y-6">
+                {/* Section Client */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Informations Client</h3>
+                  <Select onValueChange={(value) => setNewInvoice({...newInvoice, userId: value})}>
+                    <SelectTrigger data-testid="select-user">
+                      <SelectValue placeholder="Sélectionner un client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users?.map((user: any) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name} ({user.email})
+                          {user.clientType === "professionnel" && user.companyName && (
+                            <span className="text-muted-foreground"> - {user.companyName}</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Section Véhicule */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Informations Véhicule</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      placeholder="Marque"
+                      value={newInvoice.vehicleBrand}
+                      onChange={(e) => setNewInvoice({...newInvoice, vehicleBrand: e.target.value})}
+                      data-testid="input-vehicle-brand"
+                    />
+                    <Input
+                      placeholder="Modèle"
+                      value={newInvoice.vehicleModel}
+                      onChange={(e) => setNewInvoice({...newInvoice, vehicleModel: e.target.value})}
+                      data-testid="input-vehicle-model"
+                    />
+                    <Input
+                      placeholder="Plaque d'immatriculation"
+                      value={newInvoice.vehiclePlate}
+                      onChange={(e) => setNewInvoice({...newInvoice, vehiclePlate: e.target.value})}
+                      data-testid="input-vehicle-plate"
+                    />
+                    <Input
+                      placeholder="Année"
+                      value={newInvoice.vehicleYear}
+                      onChange={(e) => setNewInvoice({...newInvoice, vehicleYear: e.target.value})}
+                      data-testid="input-vehicle-year"
+                    />
+                  </div>
+                </div>
+
+                {/* Section Articles/Services */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Articles/Services</h3>
+                  
+                  {/* Ajouter un article */}
+                  <div className="border rounded-lg p-3 space-y-3">
+                    <h4 className="text-xs text-muted-foreground">Ajouter un article</h4>
+                    <div className="grid grid-cols-4 gap-2">
+                      <Input
+                        placeholder="Description"
+                        value={currentItem.description}
+                        onChange={(e) => setCurrentItem({...currentItem, description: e.target.value})}
+                        className="col-span-2"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Qté"
+                        value={currentItem.quantity}
+                        onChange={(e) => setCurrentItem({...currentItem, quantity: parseInt(e.target.value) || 1})}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Prix unitaire"
+                        value={currentItem.unitPrice}
+                        onChange={(e) => setCurrentItem({...currentItem, unitPrice: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (currentItem.description && currentItem.quantity && currentItem.unitPrice) {
+                          const total = currentItem.quantity * currentItem.unitPrice;
+                          const newItems = [...(newInvoice.items || []), {...currentItem, total}];
+                          setNewInvoice({...newInvoice, items: newItems});
+                          setCurrentItem({description: "", quantity: 1, unitPrice: 0});
+                        }
+                      }}
+                      disabled={!currentItem.description || !currentItem.unitPrice}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Ajouter
+                    </Button>
+                  </div>
+
+                  {/* Liste des articles */}
+                  {newInvoice.items && newInvoice.items.length > 0 && (
+                    <div className="space-y-2">
+                      {newInvoice.items.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center bg-secondary/50 p-2 rounded">
+                          <div className="flex-1">
+                            <span className="font-medium">{item.description}</span>
+                            <span className="text-muted-foreground ml-2">
+                              {item.quantity} × {item.unitPrice}€ = {item.total}€
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              const newItems = newInvoice.items?.filter((_, i) => i !== index);
+                              setNewInvoice({...newInvoice, items: newItems});
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Section Montants */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Montants</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground">Sous-total HT</label>
+                      <Input
+                        type="number"
+                        placeholder="Sous-total HT"
+                        value={newInvoice.subtotal}
+                        onChange={(e) => {
+                          const subtotal = e.target.value;
+                          const vatRate = parseFloat(newInvoice.vatRate || "20");
+                          const amount = parseFloat(subtotal) * (1 + vatRate / 100);
+                          setNewInvoice({
+                            ...newInvoice, 
+                            subtotal,
+                            amount: amount.toFixed(2)
+                          });
+                        }}
+                        data-testid="input-subtotal"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground">TVA (%)</label>
+                      <Input
+                        type="number"
+                        value={newInvoice.vatRate}
+                        onChange={(e) => {
+                          const vatRate = e.target.value;
+                          const subtotal = parseFloat(newInvoice.subtotal || "0");
+                          const amount = subtotal * (1 + parseFloat(vatRate) / 100);
+                          setNewInvoice({
+                            ...newInvoice, 
+                            vatRate,
+                            amount: amount.toFixed(2)
+                          });
+                        }}
+                        data-testid="input-vat-rate"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Montant total TTC</label>
+                    <Input
+                      type="number"
+                      placeholder="Montant total TTC"
+                      value={newInvoice.amount}
+                      onChange={(e) => setNewInvoice({...newInvoice, amount: e.target.value})}
+                      data-testid="input-amount"
+                    />
+                  </div>
+                </div>
+
+                {/* Section Description et détails */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Description et détails</h3>
+                  <Textarea
+                    placeholder="Description générale de la facture"
+                    value={newInvoice.description}
+                    onChange={(e) => setNewInvoice({...newInvoice, description: e.target.value})}
+                    data-testid="textarea-description"
+                  />
+                  <Textarea
+                    placeholder="Détails du travail effectué"
+                    value={newInvoice.workDetails}
+                    onChange={(e) => setNewInvoice({...newInvoice, workDetails: e.target.value})}
+                    data-testid="textarea-work-details"
+                  />
+                </div>
+
+                {/* Section Conditions de paiement */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Conditions de paiement</h3>
+                  <Select 
+                    value={newInvoice.paymentTerms} 
+                    onValueChange={(value) => setNewInvoice({...newInvoice, paymentTerms: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Paiement à réception">Paiement à réception</SelectItem>
+                      <SelectItem value="Paiement sous 30 jours">Paiement sous 30 jours</SelectItem>
+                      <SelectItem value="Paiement sous 15 jours">Paiement sous 15 jours</SelectItem>
+                      <SelectItem value="Paiement comptant">Paiement comptant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <Button 
                   onClick={() => createInvoiceMutation.mutate(newInvoice)}
                   disabled={!newInvoice.userId || !newInvoice.amount || !newInvoice.description}
                   className="w-full"
                   data-testid="button-create-submit"
                 >
-                  Créer la facture
+                  Créer la facture complète
                 </Button>
               </div>
             </DialogContent>
