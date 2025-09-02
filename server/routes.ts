@@ -7,6 +7,8 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
+import { PDFGenerator } from './pdfGenerator';
+import { EmailService } from './emailService';
 
 const JWT_SECRET = process.env.JWT_SECRET || "myjantes-secret-key";
 
@@ -668,7 +670,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(invoice.userId);
       const invoiceWithUser = { ...invoice, user };
 
-      const { PDFGenerator } = await import('./pdfGenerator');
       const pdfGenerator = new PDFGenerator();
       const pdfBuffer = await pdfGenerator.generateInvoicePDF(invoiceWithUser);
 
@@ -678,6 +679,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ message: "Erreur lors de la génération du PDF" });
+    }
+  });
+
+  // Send invoice by email
+  app.post("/api/admin/invoices/:id/send-email", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      if (!user || !user.email) {
+        return res.status(400).json({ message: "Email du client non disponible" });
+      }
+
+      const invoiceWithUser = { ...invoice, user };
+      
+      // Generate PDF
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateInvoicePDF(invoiceWithUser);
+      
+      // Send email
+      const emailService = new EmailService();
+      const emailSent = await emailService.sendInvoiceEmail(
+        user.email,
+        user.name,
+        invoice.id,
+        pdfBuffer
+      );
+
+      if (emailSent) {
+        // Mark email as sent
+        await storage.updateInvoice(invoice.id, { emailSent: true });
+        res.json({ message: "Facture envoyée par email avec succès" });
+      } else {
+        res.status(500).json({ message: "Erreur lors de l'envoi de l'email" });
+      }
+    } catch (error) {
+      console.error("Error sending invoice email:", error);
+      res.status(500).json({ message: "Erreur lors de l'envoi de l'email" });
     }
   });
 
@@ -715,9 +757,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Le devis doit avoir un montant défini" });
       }
 
+      const subtotal = (parseFloat(quote.amount) / 1.20).toFixed(2);
+      const vatAmount = (parseFloat(quote.amount) - parseFloat(subtotal)).toFixed(2);
+
       const invoiceData = {
         userId: quote.userId,
         quoteId: quote.id,
+        subtotal: subtotal,
+        vatRate: "20.00",
+        vatAmount: vatAmount,
         amount: quote.amount,
         description: `Facture générée depuis le devis ${quote.id.substring(0, 8)} - ${quote.description}`,
         workDetails: quote.description,
@@ -741,6 +789,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error converting quote to invoice:", error);
       res.status(500).json({ message: "Erreur lors de la conversion du devis" });
+    }
+  });
+
+  // Create blank invoice route
+  app.post("/api/admin/invoices", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId, amount, description, workDetails } = req.body;
+      
+      if (!userId || !amount || !description) {
+        return res.status(400).json({ message: "Données manquantes" });
+      }
+
+      const subtotalAmount = parseFloat(amount);
+      const vatAmount = subtotalAmount * 0.20;
+      const totalAmount = subtotalAmount + vatAmount;
+
+      const invoiceData = {
+        userId,
+        subtotal: subtotalAmount.toFixed(2),
+        vatRate: "20.00", 
+        vatAmount: vatAmount.toFixed(2),
+        amount: totalAmount.toFixed(2),
+        description,
+        workDetails: workDetails || null,
+      };
+
+      const invoice = await storage.createInvoice(invoiceData);
+      
+      // Create notification
+      await storage.createNotification({
+        userId,
+        title: "Nouvelle facture",
+        message: `Une nouvelle facture a été créée pour un montant de ${totalAmount.toFixed(2)}€`,
+        type: "invoice",
+        relatedId: invoice.id,
+      });
+      
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Erreur lors de la création de la facture" });
     }
   });
 
