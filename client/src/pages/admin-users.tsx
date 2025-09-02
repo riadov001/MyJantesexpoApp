@@ -41,7 +41,6 @@ export default function AdminUsers() {
 
   const { data: users, isLoading } = useQuery({
     queryKey: ["/api/admin/users"],
-    queryFn: () => apiGet<User[]>("/api/admin/users"),
   });
 
   const form = useForm<CreateUserData>({

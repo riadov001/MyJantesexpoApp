@@ -33,14 +33,6 @@ export default function BottomNavigation() {
   
   const { data: unreadCount } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
-    queryFn: async () => {
-      const token = AuthService.getToken();
-      if (!token) return { count: 0 };
-      const res = await fetch("/api/notifications/unread-count", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      return res.ok ? res.json() : { count: 0 };
-    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 

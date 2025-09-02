@@ -27,7 +27,6 @@ export default function Booking() {
 
   const { data: services } = useQuery({
     queryKey: ["/api/services"],
-    queryFn: () => apiGet<Service[]>("/api/services"),
   });
 
   const form = useForm<InsertBooking>({

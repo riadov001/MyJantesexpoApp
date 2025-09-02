@@ -15,7 +15,6 @@ export default function AdminQuotes() {
 
   const { data: quotes, isLoading } = useQuery({
     queryKey: ["/api/admin/quotes"],
-    queryFn: () => apiGet<Quote[]>("/api/admin/quotes"),
   });
 
   const updateStatusMutation = useMutation({

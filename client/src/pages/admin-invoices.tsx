@@ -36,12 +36,10 @@ export default function AdminInvoices() {
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ["/api/admin/invoices"],
-    queryFn: () => apiGet<Invoice[]>("/api/admin/invoices"),
   });
 
   const { data: users } = useQuery({
     queryKey: ["/api/admin/users"],
-    queryFn: () => apiGet<any[]>("/api/admin/users"),
   });
 
   const createInvoiceMutation = useMutation({

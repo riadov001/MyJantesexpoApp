@@ -37,17 +37,14 @@ export default function AdminWorkProgress() {
 
   const { data: workProgress, isLoading } = useQuery({
     queryKey: ["/api/admin/work-progress"],
-    queryFn: () => apiGet<WorkProgress[]>("/api/admin/work-progress"),
   });
 
   const { data: bookings } = useQuery({
     queryKey: ["/api/admin/bookings"],
-    queryFn: () => apiGet<Booking[]>("/api/admin/bookings"),
   });
 
   const { data: users } = useQuery({
     queryKey: ["/api/admin/users"],
-    queryFn: () => apiGet<any[]>("/api/admin/users"),
   });
 
   const createProgressMutation = useMutation({
