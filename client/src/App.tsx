@@ -13,6 +13,9 @@ import History from "@/pages/history";
 import Profile from "@/pages/profile";
 import Contact from "@/pages/contact";
 import Notifications from "@/pages/notifications";
+import Garanties from "@/pages/garanties";
+import MentionsLegales from "@/pages/mentions-legales";
+import CGV from "@/pages/cgv";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminBookings from "@/pages/admin-bookings";
 import AdminQuotes from "@/pages/admin-quotes";
@@ -68,6 +71,9 @@ function Router() {
           <Route path="/notifications" component={() => <ProtectedRoute component={Notifications} />} />
           <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
           <Route path="/contact" component={() => <ProtectedRoute component={Contact} />} />
+          <Route path="/garanties" component={Garanties} />
+          <Route path="/mentions-legales" component={MentionsLegales} />
+          <Route path="/cgv" component={CGV} />
           
           {/* Admin Routes */}
           <Route path="/admin" component={() => <AdminRoute component={AdminDashboard} />} />

@@ -2,7 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import { Service } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function Services() {
   const { data: services, isLoading, error } = useQuery({
@@ -50,14 +57,29 @@ export default function Services() {
             <p className="text-muted-foreground text-sm mb-4" data-testid={`text-service-description-${service.id}`}>
               {service.description}
             </p>
-            <div className="flex justify-between items-center">
-              <span className="text-primary font-semibold" data-testid={`text-service-price-${service.id}`}>
-                À partir de {service.basePrice}€
-              </span>
-              <Button className="ios-button px-4 py-2 text-sm" data-testid={`button-service-details-${service.id}`}>
-                Voir plus
-              </Button>
-            </div>
+            
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value={`service-${service.id}`} className="border-none">
+                <AccordionTrigger 
+                  className="text-primary hover:text-primary/80 text-sm font-medium py-2 px-0"
+                  data-testid={`button-service-details-${service.id}`}
+                >
+                  Voir plus de détails
+                </AccordionTrigger>
+                <AccordionContent className="text-sm text-muted-foreground pb-2">
+                  <div className="space-y-2">
+                    <p><strong>Détails du service :</strong></p>
+                    <p>Nos experts s'occupent de votre véhicule avec le plus grand soin. Chaque intervention est réalisée selon les standards de qualité les plus élevés.</p>
+                    <p className="text-primary font-medium mt-3">
+                      💼 Prix sur devis personnalisé
+                    </p>
+                    <p className="text-xs">
+                      Contactez-nous pour obtenir un devis gratuit adapté à vos besoins spécifiques.
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         ))}
 
