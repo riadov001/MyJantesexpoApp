@@ -3,6 +3,7 @@ import {
   type Quote, type InsertQuote, type Invoice, type InsertInvoice, type Notification, 
   type InsertNotification, type WorkProgress, type InsertWorkProgress, type AuditLog, type InsertAuditLog,
   type BookingAssignment, type InsertBookingAssignment, type TimeSlotConfig, type InsertTimeSlotConfig,
+  type UpdateClientProfileData,
   users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings, auditLogs, bookingAssignments, timeSlotConfigs
 } from "@shared/schema";
 import { db } from "./db";
@@ -13,6 +14,8 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(id: string, hashedPassword: string): Promise<void>;
+  updateUserProfile(id: string, profileData: UpdateClientProfileData): Promise<User | undefined>;
   
   // Services
   getServices(): Promise<Service[]>;
@@ -145,6 +148,33 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.id, id));
+  }
+
+  async updateUserProfile(id: string, profileData: UpdateClientProfileData): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        name: profileData.name,
+        phone: profileData.phone,
+        address: profileData.address,
+        clientType: profileData.clientType,
+        companyName: profileData.companyName,
+        companyAddress: profileData.companyAddress,
+        companySiret: profileData.companySiret,
+        companyVat: profileData.companyVat,
+        companyApe: profileData.companyApe,
+        companyContact: profileData.companyContact,
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser || undefined;
   }
 
   // Services

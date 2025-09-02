@@ -206,11 +206,19 @@ startxref
             ? `data:image/png;base64,${fs.readFileSync(logoPath, "base64")}`
             : "";
 
-        const subtotal =
-            invoice.subtotal || (parseFloat(invoice.amount) / 1.2).toFixed(2);
-        const vatAmount =
-            invoice.vat ||
-            (parseFloat(invoice.amount) - parseFloat(subtotal)).toFixed(2);
+        // Calculs avancés avec les nouveaux champs
+        const subtotal = invoice.subtotal ? parseFloat(invoice.subtotal) : (parseFloat(invoice.amount) / 1.2);
+        const vatRate = invoice.vatRate ? parseFloat(invoice.vatRate) : 20;
+        const vatAmount = invoice.vat ? parseFloat(invoice.vat) : (subtotal * vatRate / 100);
+        const total = invoice.amount ? parseFloat(invoice.amount) : (subtotal + vatAmount);
+
+        // Articles/services avec détails
+        const items = invoice.items || [{
+            description: invoice.description,
+            quantity: 1,
+            unitPrice: subtotal,
+            total: subtotal
+        }];
 
         return `
 <!DOCTYPE html>
@@ -268,6 +276,18 @@ startxref
         }
         .invoice-details, .client-details {
             width: 45%;
+        }
+        .vehicle-info {
+            background-color: #f8f8f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #dc2626;
+        }
+        .vehicle-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
         }
         .detail-title {
             font-weight: bold;
@@ -400,14 +420,33 @@ startxref
                         ${invoice.status === "paid" ? "Payée" : invoice.status === "unpaid" ? "Impayée" : "En attente"}
                     </span>
                 </div>
+                ${invoice.paymentTerms ? `<div class="detail-item"><strong>Conditions:</strong> ${invoice.paymentTerms}</div>` : ''}
             </div>
             <div class="client-details">
                 <div class="detail-title">Facturation à</div>
                 <div class="detail-item"><strong>${invoice.user?.name || "Client"}</strong></div>
+                ${invoice.user?.clientType === "professionnel" && invoice.user?.companyName ? `
+                    <div class="detail-item"><strong>${invoice.user.companyName}</strong></div>
+                    ${invoice.user.companyAddress ? `<div class="detail-item">${invoice.user.companyAddress}</div>` : ''}
+                    ${invoice.user.companySiret ? `<div class="detail-item">SIRET: ${invoice.user.companySiret}</div>` : ''}
+                    ${invoice.user.companyVat ? `<div class="detail-item">TVA: ${invoice.user.companyVat}</div>` : ''}
+                ` : ''}
                 <div class="detail-item">${invoice.user?.email || ""}</div>
                 <div class="detail-item">${invoice.user?.phone || ""}</div>
+                ${invoice.user?.address && invoice.user?.clientType === "particulier" ? `<div class="detail-item">${invoice.user.address}</div>` : ''}
             </div>
         </div>
+
+        ${invoice.vehicleBrand || invoice.vehicleModel || invoice.vehiclePlate ? `
+        <div class="vehicle-info">
+            <div class="detail-title">Informations véhicule</div>
+            <div class="vehicle-details">
+                ${invoice.vehicleBrand && invoice.vehicleModel ? `<div class="detail-item"><strong>Véhicule:</strong> ${invoice.vehicleBrand} ${invoice.vehicleModel}</div>` : ''}
+                ${invoice.vehiclePlate ? `<div class="detail-item"><strong>Immatriculation:</strong> ${invoice.vehiclePlate}</div>` : ''}
+                ${invoice.vehicleYear ? `<div class="detail-item"><strong>Année:</strong> ${invoice.vehicleYear}</div>` : ''}
+            </div>
+        </div>
+        ` : ''}
 
         ${
             invoice.workDetails
@@ -424,20 +463,30 @@ startxref
             <thead>
                 <tr>
                     <th>Description</th>
-                    <th style="text-align: right;">Montant</th>
+                    <th style="text-align: center; width: 80px;">Qté</th>
+                    <th style="text-align: right; width: 100px;">Prix unit.</th>
+                    <th style="text-align: right; width: 100px;">Total</th>
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td>${invoice.description}</td>
-                    <td style="text-align: right;">${invoice.amount}€</td>
-                </tr>
+                ${items.map(item => `
+                    <tr>
+                        <td>${item.description}</td>
+                        <td style="text-align: center;">${item.quantity || 1}</td>
+                        <td style="text-align: right;">${(item.unitPrice || item.total || 0).toFixed(2)}€</td>
+                        <td style="text-align: right;"><strong>${(item.total || item.unitPrice || 0).toFixed(2)}€</strong></td>
+                    </tr>
+                `).join('')}
             </tbody>
         </table>
 
         <div class="total-section">
-            <div class="total-amount">
-                Total: ${invoice.amount}€
+            <div style="text-align: right; margin-bottom: 20px;">
+                <div style="margin-bottom: 8px;"><strong>Sous-total HT:</strong> ${subtotal.toFixed(2)}€</div>
+                <div style="margin-bottom: 8px;"><strong>TVA (${vatRate}%):</strong> ${vatAmount.toFixed(2)}€</div>
+                <div class="total-amount" style="margin-top: 15px;">
+                    <strong>Total TTC: ${total.toFixed(2)}€</strong>
+                </div>
             </div>
         </div>
 

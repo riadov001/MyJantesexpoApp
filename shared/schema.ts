@@ -11,6 +11,14 @@ export const users = pgTable("users", {
   phone: text("phone"),
   address: text("address"),
   role: text("role").default("client"), // client, admin, employee
+  clientType: text("client_type").default("particulier"), // particulier, professionnel
+  // Informations société (pour clients professionnels)
+  companyName: text("company_name"),
+  companyAddress: text("company_address"),
+  companySiret: text("company_siret"),
+  companyVat: text("company_vat"),
+  companyApe: text("company_ape"),
+  companyContact: text("company_contact"), // Nom du contact dans l'entreprise
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -62,14 +70,27 @@ export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   quoteId: varchar("quote_id").references(() => quotes.id),
+  invoiceNumber: text("invoice_number"), // Numéro de facture auto-généré
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
   vatRate: decimal("vat_rate", { precision: 5, scale: 2 }).default("20.00"),
   vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description").notNull(),
+  // Détails des articles/services
+  items: jsonb("items").default([]), // Array of {description, quantity, unitPrice, total}
+  // Informations véhicule
+  vehicleBrand: text("vehicle_brand"),
+  vehicleModel: text("vehicle_model"),
+  vehiclePlate: text("vehicle_plate"),
+  vehicleYear: text("vehicle_year"),
+  // Photos et détails du travail
   photosBefore: jsonb("photos_before").default([]),
   photosAfter: jsonb("photos_after").default([]),
   workDetails: text("work_details"),
+  // Conditions de paiement
+  paymentTerms: text("payment_terms").default("Paiement à réception"),
+  dueDate: timestamp("due_date"),
+  // Statut et suivi
   status: text("status").default("unpaid"),
   emailSent: boolean("email_sent").default(false),
   lastModifiedBy: varchar("last_modified_by").references(() => users.id),
@@ -207,6 +228,37 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Le mot de passe doit faire au moins 6 caractères"),
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Mot de passe actuel requis"),
+  newPassword: z.string().min(6, "Le nouveau mot de passe doit faire au moins 6 caractères"),
+  confirmPassword: z.string().min(6, "Confirmation requise"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Les mots de passe ne correspondent pas",
+  path: ["confirmPassword"],
+});
+
+export const updateClientProfileSchema = z.object({
+  name: z.string().min(1, "Nom requis"),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  clientType: z.enum(["particulier", "professionnel"]),
+  // Champs société (optionnels, requis seulement si professionnel)
+  companyName: z.string().optional(),
+  companyAddress: z.string().optional(),
+  companySiret: z.string().optional(),
+  companyVat: z.string().optional(),
+  companyApe: z.string().optional(),
+  companyContact: z.string().optional(),
+}).refine((data) => {
+  if (data.clientType === "professionnel") {
+    return data.companyName && data.companyName.length > 0;
+  }
+  return true;
+}, {
+  message: "Nom de l'entreprise requis pour les clients professionnels",
+  path: ["companyName"],
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Service = typeof services.$inferSelect;
@@ -230,3 +282,5 @@ export type InsertBookingAssignment = z.infer<typeof insertBookingAssignmentSche
 export type TimeSlotConfig = typeof timeSlotConfigs.$inferSelect;
 export type InsertTimeSlotConfig = z.infer<typeof insertTimeSlotConfigSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
+export type ChangePasswordData = z.infer<typeof changePasswordSchema>;
+export type UpdateClientProfileData = z.infer<typeof updateClientProfileSchema>;

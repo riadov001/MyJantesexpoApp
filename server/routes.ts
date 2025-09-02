@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertInvoiceSchema, insertNotificationSchema, insertWorkProgressSchema, loginSchema } from "@shared/schema";
+import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertInvoiceSchema, insertNotificationSchema, insertWorkProgressSchema, insertBookingAssignmentSchema, loginSchema, changePasswordSchema, updateClientProfileSchema } from "@shared/schema";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
@@ -132,9 +132,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id, 
         email: user.email, 
         name: user.name, 
-        phone: user.phone 
+        phone: user.phone,
+        address: user.address,
+        role: user.role,
+        clientType: user.clientType,
+        companyName: user.companyName,
+        companyAddress: user.companyAddress,
+        companySiret: user.companySiret,
+        companyVat: user.companyVat,
+        companyApe: user.companyApe,
+        companyContact: user.companyContact
       });
     } catch (error) {
+      res.status(500).json({ message: "Erreur serveur" });
+    }
+  });
+
+  // Route pour modifier le mot de passe
+  app.post("/api/auth/change-password", authenticateToken, async (req: any, res) => {
+    try {
+      const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+      
+      const user = await storage.getUser(req.user.userId);
+      if (!user) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      // Vérifier l'ancien mot de passe
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ message: "Mot de passe actuel incorrect" });
+      }
+
+      // Hash le nouveau mot de passe
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      
+      // Mettre à jour le mot de passe
+      await storage.updateUserPassword(req.user.userId, hashedNewPassword);
+
+      res.json({ message: "Mot de passe modifié avec succès" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erreur serveur" });
+    }
+  });
+
+  // Route pour mettre à jour le profil client
+  app.put("/api/auth/profile", authenticateToken, async (req: any, res) => {
+    try {
+      const profileData = updateClientProfileSchema.parse(req.body);
+      
+      const updatedUser = await storage.updateUserProfile(req.user.userId, profileData);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      res.json({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        clientType: updatedUser.clientType,
+        companyName: updatedUser.companyName,
+        companyAddress: updatedUser.companyAddress,
+        companySiret: updatedUser.companySiret,
+        companyVat: updatedUser.companyVat,
+        companyApe: updatedUser.companyApe,
+        companyContact: updatedUser.companyContact
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      }
       res.status(500).json({ message: "Erreur serveur" });
     }
   });
