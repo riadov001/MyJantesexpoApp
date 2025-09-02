@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera } from "lucide-react";
@@ -259,75 +260,105 @@ export default function AdminInvoices() {
               </div>
               
               {/* Ligne 2: Actions principales */}
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')}
-                  data-testid={`button-pdf-${invoice.id}`}
-                  className="h-11"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Télécharger PDF
-                </Button>
+              <div className="flex justify-center gap-4">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')}
+                      data-testid={`button-pdf-${invoice.id}`}
+                      className="h-12 w-12"
+                    >
+                      <Download className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Télécharger PDF</p>
+                  </TooltipContent>
+                </Tooltip>
                 
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => sendEmailMutation.mutate(invoice.id)}
-                  disabled={sendEmailMutation.isPending}
-                  data-testid={`button-email-${invoice.id}`}
-                  className="h-11"
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  {sendEmailMutation.isPending ? "Envoi..." : "Envoyer Email"}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => sendEmailMutation.mutate(invoice.id)}
+                      disabled={sendEmailMutation.isPending}
+                      data-testid={`button-email-${invoice.id}`}
+                      className="h-12 w-12"
+                    >
+                      <Send className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{sendEmailMutation.isPending ? "Envoi..." : "Envoyer Email"}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               
               {/* Ligne 3: Actions secondaires */}
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => {
-                    setSelectedInvoiceForNotif(invoice.id);
-                    setIsNotifModalOpen(true);
-                  }}
-                  data-testid={`button-notify-${invoice.id}`}
-                  className="h-10"
-                >
-                  <Send className="w-4 h-4 mr-1" />
-                  Notifier
-                </Button>
+              <div className="flex justify-center gap-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedInvoiceForNotif(invoice.id);
+                        setIsNotifModalOpen(true);
+                      }}
+                      data-testid={`button-notify-${invoice.id}`}
+                      className="h-10 w-10"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Notifier client</p>
+                  </TooltipContent>
+                </Tooltip>
                 
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => {
-                    setEditingInvoice(invoice);
-                    setIsEditModalOpen(true);
-                  }}
-                  data-testid={`button-edit-${invoice.id}`}
-                  className="h-10"
-                >
-                  <Edit className="w-4 h-4 mr-1" />
-                  Modifier
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setEditingInvoice(invoice);
+                        setIsEditModalOpen(true);
+                      }}
+                      data-testid={`button-edit-${invoice.id}`}
+                      className="h-10 w-10"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Modifier facture</p>
+                  </TooltipContent>
+                </Tooltip>
                 
-                <Button
-                  variant="destructive"
-                  size="default"
-                  onClick={() => {
-                    if (confirm("Êtes-vous sûr de vouloir supprimer cette facture ?")) {
-                      deleteInvoiceMutation.mutate(invoice.id);
-                    }
-                  }}
-                  data-testid={`button-delete-${invoice.id}`}
-                  className="h-10"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Supprimer
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm("Êtes-vous sûr de vouloir supprimer cette facture ?")) {
+                          deleteInvoiceMutation.mutate(invoice.id);
+                        }
+                      }}
+                      data-testid={`button-delete-${invoice.id}`}
+                      className="h-10 w-10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Supprimer facture</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
 
