@@ -107,10 +107,13 @@ BT
 (Service professionnel de jantes) Tj
 0 -15 Td
 (SAS au capital variable - SIREN: 913 678 199) Tj
-(46 RUE DE LA CONVENTION, 62800 LIEVIN - TVA: FR73913678199) Tj
+0 -15 Td
+(46 RUE DE LA CONVENTION, 62800 LIEVIN) Tj
+0 -15 Td
+(TVA: FR73913678199) Tj
 0 -15 Td
 (Email: contact@myjantes.fr) Tj
-
+0 -15 Td
 /F1 16 Tf
 0 -50 Td
 (FACTURE N° ${invoice.id.substring(0, 8).toUpperCase()}) Tj
