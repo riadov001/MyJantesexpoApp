@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths, isToday, startOfDay, addDays } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -35,6 +35,7 @@ export default function AdminCalendar() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [configData, setConfigData] = useState({
     maxCapacity: 2,
     isActive: true,
@@ -42,6 +43,16 @@ export default function AdminCalendar() {
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const isWeekView = viewMode === "week";
   const startDate = isWeekView ? startOfWeek(currentDate, { weekStartsOn: 1 }) : startOfMonth(currentDate);
@@ -222,6 +233,67 @@ export default function AdminCalendar() {
   const renderWeekView = () => {
     const days = eachDayOfInterval({ start: startDate, end: endDate });
     
+    if (isMobile) {
+      // Vue mobile simplifiée - une colonne par jour
+      return (
+        <div className="space-y-4">
+          {days.map(day => (
+            <Card key={day.toString()} className="p-4">
+              <div className="mb-3">
+                <h3 className={`text-lg font-semibold ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-gray-900'}`}>
+                  {format(day, "EEEE d MMMM", { locale: fr })}
+                </h3>
+              </div>
+              
+              <div className="space-y-2">
+                {TIME_SLOTS.map(timeSlot => {
+                  const bookings = getBookingsForDateAndTime(day, timeSlot);
+                  const config = getConfigForDateAndTime(day, timeSlot);
+                  const capacity = config?.maxCapacity || 2;
+                  const isDisabled = config?.isActive === false;
+                  
+                  return (
+                    <div
+                      key={timeSlot}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isDisabled ? 'bg-red-50 border-red-200' : 'bg-gray-50 hover:bg-blue-50 border-gray-200'
+                      }`}
+                      onClick={() => openConfigDialog(day, timeSlot)}
+                      data-testid={`slot-${format(day, "yyyy-MM-dd")}-${timeSlot}`}
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium text-gray-900">{timeSlot}</span>
+                        <span className="text-sm text-gray-500">
+                          {bookings.length}/{capacity}
+                        </span>
+                      </div>
+                      
+                      {bookings.length > 0 && (
+                        <div className="space-y-1">
+                          {bookings.map((booking: Booking) => (
+                            <div key={booking.id} className="text-sm p-2 rounded bg-blue-100 text-blue-800">
+                              {booking.vehicleBrand} - {booking.vehiclePlate}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {isDisabled && (
+                        <div className="text-sm text-red-600 font-medium">
+                          Fermé - {config?.reason || "Indisponible"}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+
+    // Vue desktop - grille complète
     return (
       <div className="flex flex-col h-full">
         {/* En-tête des jours */}
@@ -264,7 +336,7 @@ export default function AdminCalendar() {
                     <div
                       key={`${day}-${timeSlot}`}
                       className={`h-16 border-b border-gray-200 p-1 cursor-pointer hover:bg-gray-50 transition-colors ${
-                        !isSlotActive ? "bg-gray-100" : ""
+                        !isSlotActive ? "bg-red-50" : ""
                       }`}
                       onClick={() => openConfigDialog(day, timeSlot)}
                       data-testid={`time-slot-${format(day, "yyyy-MM-dd")}-${timeSlot}`}

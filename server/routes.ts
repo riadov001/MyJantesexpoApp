@@ -956,7 +956,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/calendar-data", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const { startDate, endDate } = req.query;
-      const bookings = storage.getBookings().filter(booking => {
+      const allBookings = await storage.getBookings();
+      const bookings = allBookings.filter(booking => {
         const bookingDate = booking.date;
         return (!startDate || bookingDate >= startDate) && 
                (!endDate || bookingDate <= endDate);

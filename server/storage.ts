@@ -72,6 +72,14 @@ export interface IStorage {
   createTimeSlotConfig(config: InsertTimeSlotConfig): Promise<TimeSlotConfig>;
   updateTimeSlotConfig(date: string, timeSlot: string, data: Partial<InsertTimeSlotConfig>): Promise<TimeSlotConfig | undefined>;
   getTimeSlotConfig(date: string, timeSlot: string): Promise<TimeSlotConfig | undefined>;
+  
+  // Admin Settings
+  getAdminSettings(): Promise<any>;
+  updateAdminSettings(settings: any): Promise<any>;
+  
+  // Additional booking methods
+  getBookings(): Promise<Booking[]>;
+  getBooking(id: string): Promise<Booking | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -507,12 +515,12 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(bookings);
   }
 
-  async getAdminSettings(): Promise<AdminSettings | undefined> {
+  async getAdminSettings(): Promise<any> {
     const [setting] = await db.select().from(adminSettings).limit(1);
     return setting || undefined;
   }
 
-  async updateAdminSettings(data: Partial<AdminSettings>): Promise<void> {
+  async updateAdminSettings(data: any): Promise<void> {
     const existing = await this.getAdminSettings();
     
     if (existing) {
