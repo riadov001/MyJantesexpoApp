@@ -243,77 +243,94 @@ export default function AdminInvoices() {
               </span>
             </div>
 
-            <div className="flex items-center justify-between space-x-2">
-              <Select onValueChange={(status) => updateStatusMutation.mutate({ id: invoice.id, status })}>
-                <SelectTrigger className="flex-1" data-testid={`select-status-${invoice.id}`}>
-                  <SelectValue placeholder="Changer le statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unpaid">Non payée</SelectItem>
-                  <SelectItem value="paid">Payée</SelectItem>
-                  <SelectItem value="overdue">En retard</SelectItem>
-                  <SelectItem value="cancelled">Annulée</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Actions mobile-friendly */}
+            <div className="space-y-3">
+              {/* Ligne 1: Changement de statut */}
+              <div className="w-full">
+                <Select onValueChange={(status) => updateStatusMutation.mutate({ id: invoice.id, status })}>
+                  <SelectTrigger className="w-full h-11" data-testid={`select-status-${invoice.id}`}>
+                    <SelectValue placeholder="Changer le statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unpaid">Non payée</SelectItem>
+                    <SelectItem value="paid">Payée</SelectItem>
+                    <SelectItem value="overdue">En retard</SelectItem>
+                    <SelectItem value="cancelled">Annulée</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelectedInvoiceForNotif(invoice.id);
-                  setIsNotifModalOpen(true);
-                }}
-                data-testid={`button-notify-${invoice.id}`}
-              >
-                <Send className="w-4 h-4 mr-1" />
-                Notifier
-              </Button>
+              {/* Ligne 2: Actions principales */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')}
+                  data-testid={`button-pdf-${invoice.id}`}
+                  className="h-11"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Télécharger PDF
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => sendEmailMutation.mutate(invoice.id)}
+                  disabled={sendEmailMutation.isPending}
+                  data-testid={`button-email-${invoice.id}`}
+                  className="h-11"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  {sendEmailMutation.isPending ? "Envoi..." : "Envoyer Email"}
+                </Button>
+              </div>
               
-              <Button
-                variant="outline" 
-                size="sm"
-                onClick={() => window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')}
-                data-testid={`button-pdf-${invoice.id}`}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                PDF
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => sendEmailMutation.mutate(invoice.id)}
-                disabled={sendEmailMutation.isPending}
-                data-testid={`button-email-${invoice.id}`}
-              >
-                <Send className="w-4 h-4 mr-1" />
-                {sendEmailMutation.isPending ? "Envoi..." : "Email"}
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setEditingInvoice(invoice);
-                  setIsEditModalOpen(true);
-                }}
-                data-testid={`button-edit-${invoice.id}`}
-              >
-                <Edit className="w-4 h-4" />
-              </Button>
-              
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  if (confirm("Êtes-vous sûr de vouloir supprimer cette facture ?")) {
-                    deleteInvoiceMutation.mutate(invoice.id);
-                  }
-                }}
-                data-testid={`button-delete-${invoice.id}`}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {/* Ligne 3: Actions secondaires */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => {
+                    setSelectedInvoiceForNotif(invoice.id);
+                    setIsNotifModalOpen(true);
+                  }}
+                  data-testid={`button-notify-${invoice.id}`}
+                  className="h-10"
+                >
+                  <Send className="w-4 h-4 mr-1" />
+                  Notifier
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => {
+                    setEditingInvoice(invoice);
+                    setIsEditModalOpen(true);
+                  }}
+                  data-testid={`button-edit-${invoice.id}`}
+                  className="h-10"
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  Modifier
+                </Button>
+                
+                <Button
+                  variant="destructive"
+                  size="default"
+                  onClick={() => {
+                    if (confirm("Êtes-vous sûr de vouloir supprimer cette facture ?")) {
+                      deleteInvoiceMutation.mutate(invoice.id);
+                    }
+                  }}
+                  data-testid={`button-delete-${invoice.id}`}
+                  className="h-10"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Supprimer
+                </Button>
+              </div>
             </div>
 
             <div className="mt-3 text-xs text-muted-foreground">
