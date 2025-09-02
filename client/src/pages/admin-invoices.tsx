@@ -111,48 +111,7 @@ export default function AdminInvoices() {
     },
   });
 
-  const sendEmailMutation = useMutation({
-    mutationFn: (id: string) => apiPost(`/api/admin/invoices/${id}/send-email`, {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
-      toast({ title: "Email envoyé", description: "La facture a été envoyée par email avec succès." });
-    },
-    onError: (error: any) => {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
-    },
-  });
 
-  const openMobileEmailMutation = useMutation({
-    mutationFn: (id: string) => apiGet(`/api/admin/invoices/${id}/mobile-email-data`),
-    onSuccess: (data: any) => {
-      const emailTemplate = `Bonjour,
-
-Veuillez trouver ci-joint votre facture.
-
-En vous remerciant pour votre confiance.
-
-Cordialement,
-MyJantes`;
-
-      const subject = `Facture MyJantes - ${data.description}`;
-      const body = encodeURIComponent(emailTemplate);
-      const subjectEncoded = encodeURIComponent(subject);
-      
-      // Créer un lien mailto: qui ouvre l'application de messagerie
-      const mailtoUrl = `mailto:${data.clientEmail}?subject=${subjectEncoded}&body=${body}`;
-      
-      // Ouvrir l'application de messagerie
-      window.location.href = mailtoUrl;
-      
-      toast({ 
-        title: "Application messagerie ouverte", 
-        description: "L'application de messagerie s'est ouverte avec les données pré-remplies. Ajoutez manuellement la facture PDF en pièce jointe." 
-      });
-    },
-    onError: (error: any) => {
-      toast({ title: "Erreur", description: error.message, variant: "destructive" });
-    },
-  });
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
@@ -577,41 +536,6 @@ MyJantes`;
                   </TooltipContent>
                 </Tooltip>
                 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => sendEmailMutation.mutate(invoice.id)}
-                      disabled={sendEmailMutation.isPending}
-                      data-testid={`button-email-${invoice.id}`}
-                      className="h-12 w-12"
-                    >
-                      <Send className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{sendEmailMutation.isPending ? "Envoi..." : "Envoyer Email"}</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => openMobileEmailMutation.mutate(invoice.id)}
-                      disabled={openMobileEmailMutation.isPending}
-                      data-testid={`button-mobile-email-${invoice.id}`}
-                      className="h-12 w-12 bg-blue-50 hover:bg-blue-100"
-                    >
-                      <Smartphone className="w-5 h-5 text-blue-600" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{openMobileEmailMutation.isPending ? "Ouverture..." : "Email Mobile"}</p>
-                  </TooltipContent>
-                </Tooltip>
 
                 <Tooltip>
                   <TooltipTrigger asChild>

@@ -37,6 +37,25 @@ export default function AdminQuotes() {
     },
   });
 
+  const convertToInvoiceMutation = useMutation({
+    mutationFn: (quoteId: string) => apiPost(`/api/admin/quotes/${quoteId}/convert-to-invoice`, {}),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
+      toast({
+        title: "Facture générée",
+        description: `Facture #${data.invoiceNumber} créée avec succès à partir du devis.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de générer la facture",
+        variant: "destructive",
+      });
+    },
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved":
@@ -212,16 +231,11 @@ export default function AdminQuotes() {
                       <Button 
                         size="sm"
                         className="flex-1"
-                        onClick={() => {
-                          // Ici on peut ajouter la conversion en facture plus tard
-                          toast({
-                            title: "Conversion en facture",
-                            description: "Fonctionnalité en cours de développement",
-                          });
-                        }}
+                        onClick={() => convertToInvoiceMutation.mutate(quote.id)}
+                        disabled={convertToInvoiceMutation.isPending}
                         data-testid={`button-convert-invoice-${quote.id}`}
                       >
-                        ✅ Facturer
+                        ✅ {convertToInvoiceMutation.isPending ? "Génération..." : "Facturer"}
                       </Button>
                     )}
                   </div>
