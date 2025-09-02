@@ -1,24 +1,67 @@
 workflows:
-  build-android:
-    name: MyJantes Android Build
-    max_build_duration: 60
+  full-hybrid-build:
+    name: Full React Native + Flutter + Web Build
+    max_build_duration: 120
     environment:
+      node: 18
       flutter: stable
-      vars:
-        ANDROID_KEYSTORE: $CM_KEYSTORE
-        ANDROID_KEYSTORE_PASSWORD: $CM_KEYSTORE_PASSWORD
-        ANDROID_KEY_ALIAS: $CM_KEY_ALIAS
-        ANDROID_KEY_PASSWORD: $CM_KEY_PASSWORD
+      xcode: latest
+      cocoapods: default
     triggering:
       events:
         - push
       branch_patterns:
-        - pattern: main
+        - pattern: Flutter-app-MyJantesv1
           include: true
+          source: true
     scripts:
-      - name: Get Flutter packages
-        script: flutter pub get
-      - name: Build Android App Bundle
-        script: flutter build appbundle --release
+      # 1️⃣ Installer dépendances React/Expo
+      - name: Install React dependencies
+        script: |
+          npm ci
+      # 2️⃣ Installer Pods iOS
+      - name: Install iOS pods
+        script: |
+          cd ios || exit 0
+          pod install || true
+          cd ..
+      # 3️⃣ Build React web (optionnel)
+      - name: Build React web bundle
+        script: |
+          npm run build
+      # 4️⃣ Build React Native Android APK
+      - name: Build React Native Android APK
+        script: |
+          npx expo prebuild --clean
+          npx expo run:android --no-install
+      # 5️⃣ Build React Native iOS IPA
+      - name: Build React Native iOS IPA
+        script: |
+          npx expo prebuild --clean
+          npx expo run:ios --no-install
+      # 6️⃣ Préparer Flutter module
+      - name: Prepare Flutter module
+        script: |
+          cd myjantes_app
+          flutter pub get
+      # 7️⃣ Build Flutter Android APK (unsigned)
+      - name: Build Flutter Android APK
+        script: |
+          flutter build apk --debug --no-shrink
+      # 8️⃣ Build Flutter iOS IPA (unsigned)
+      - name: Build Flutter iOS IPA
+        script: |
+          flutter build ipa --no-codesign --debug
     artifacts:
-      - build/**/outputs/**/*.aab
+      # React Native / Expo
+      - android/app/build/outputs/**/*.apk
+      - ios/build/**/*.ipa
+      # Flutter
+      - myjantes_app/build/app/outputs/flutter-apk/app-debug.apk
+      - myjantes_app/build/ios/ipa/Runner.ipa
+      # React Web
+      - dist/**
+    cache:
+      cache_paths:
+        - ~/.npm
+        - $FLUTTER_ROOT/.pub-cache
