@@ -974,6 +974,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Google Calendar OAuth routes
+  app.get("/api/google/auth", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { GoogleCalendarService } = await import('./googleCalendar');
+      const calendarService = new GoogleCalendarService();
+      const authUrl = calendarService.generateAuthUrl();
+      res.json({ authUrl });
+    } catch (error) {
+      console.error("Error generating Google auth URL:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'URL d'authentification" });
+    }
+  });
+
+  app.get("/api/google/callback", async (req, res) => {
+    try {
+      const { code } = req.query;
+      if (!code) {
+        return res.status(400).json({ message: "Code d'autorisation manquant" });
+      }
+
+      const { GoogleCalendarService } = await import('./googleCalendar');
+      const calendarService = new GoogleCalendarService();
+      const tokens = await calendarService.getTokens(code as string);
+      
+      // Store tokens in admin settings (in a real app, you'd store this per user)
+      await storage.updateAdminSettings({
+        googleCalendarTokens: JSON.stringify(tokens)
+      });
+
+      // Redirect to admin calendar with success message
+      res.redirect('/admin/calendar?sync=success');
+    } catch (error) {
+      console.error("Error handling Google callback:", error);
+      res.redirect('/admin/calendar?sync=error');
+    }
+  });
+
+  app.post("/api/google/sync-booking", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { bookingId } = req.body;
+      
+      // Get admin settings to retrieve Google tokens
+      const settings = await storage.getAdminSettings();
+      const tokens = settings?.googleCalendarTokens ? JSON.parse(settings.googleCalendarTokens) : null;
+      
+      if (!tokens) {
+        return res.status(400).json({ message: "Google Calendar non configuré" });
+      }
+
+      // Get booking details
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Réservation non trouvée" });
+      }
+
+      const user = await storage.getUser(booking.userId);
+      if (!user) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const { GoogleCalendarService } = await import('./googleCalendar');
+      const calendarService = new GoogleCalendarService();
+      calendarService.setCredentials(tokens);
+
+      // Create calendar event
+      const calendarEvent = await calendarService.createBookingEvent(
+        booking,
+        user.email,
+        user.name
+      );
+
+      // Store calendar event ID in booking
+      await storage.updateBookingWithTracking(bookingId, {
+        googleCalendarEventId: calendarEvent.id
+      }, req.user.userId);
+
+      res.json({ 
+        message: "Réservation synchronisée avec Google Calendar",
+        eventId: calendarEvent.id,
+        eventUrl: calendarEvent.htmlLink
+      });
+    } catch (error) {
+      console.error("Error syncing booking with Google Calendar:", error);
+      res.status(500).json({ message: "Erreur lors de la synchronisation" });
+    }
+  });
+
+  app.get("/api/google/status", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const settings = await storage.getAdminSettings();
+      const isConnected = !!(settings?.googleCalendarTokens);
+      
+      res.json({ 
+        connected: isConnected,
+        message: isConnected ? "Google Calendar connecté" : "Google Calendar non connecté"
+      });
+    } catch (error) {
+      console.error("Error checking Google Calendar status:", error);
+      res.status(500).json({ message: "Erreur lors de la vérification du statut" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

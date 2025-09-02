@@ -502,6 +502,28 @@ export class DatabaseStorage implements IStorage {
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
     return booking || undefined;
   }
+
+  async getBookings(): Promise<Booking[]> {
+    return await db.select().from(bookings);
+  }
+
+  async getAdminSettings(): Promise<AdminSettings | undefined> {
+    const [setting] = await db.select().from(adminSettings).limit(1);
+    return setting || undefined;
+  }
+
+  async updateAdminSettings(data: Partial<AdminSettings>): Promise<void> {
+    const existing = await this.getAdminSettings();
+    
+    if (existing) {
+      await db
+        .update(adminSettings)
+        .set(data)
+        .where(eq(adminSettings.id, existing.id));
+    } else {
+      await db.insert(adminSettings).values(data);
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
