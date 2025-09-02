@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera, Smartphone } from "lucide-react";
@@ -193,8 +193,9 @@ MyJantes`;
   }
 
   return (
-    <div className="pb-24">
-      <div className="px-6 py-4 border-b border-border">
+    <TooltipProvider>
+      <div className="pb-24">
+        <div className="px-6 py-4 border-b border-border">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold" data-testid="admin-invoices-title">Gestion des Factures</h2>
@@ -490,6 +491,7 @@ MyJantes`;
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
