@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   phone: text("phone"),
+  address: text("address"),
   role: text("role").default("client"), // client, admin, employee
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -54,12 +55,16 @@ export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   quoteId: varchar("quote_id").references(() => quotes.id),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }).default("20.00"),
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description").notNull(),
   photosBefore: jsonb("photos_before").default([]),
   photosAfter: jsonb("photos_after").default([]),
   workDetails: text("work_details"),
   status: text("status").default("unpaid"),
+  emailSent: boolean("email_sent").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

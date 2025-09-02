@@ -14,7 +14,7 @@ interface CreateInvoiceData {
   userId: string;
   amount: string;
   description: string;
-  quoteId?: string;
+  workDetails?: string;
 }
 
 export default function AdminInvoices() {
@@ -22,7 +22,7 @@ export default function AdminInvoices() {
     userId: "",
     amount: "",
     description: "",
-    quoteId: ""
+    workDetails: ""
   });
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [notificationComment, setNotificationComment] = useState("");
@@ -49,7 +49,7 @@ export default function AdminInvoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
       toast({ title: "Facture créée", description: "La facture a été créée avec succès." });
-      setNewInvoice({ userId: "", amount: "", description: "", quoteId: "" });
+      setNewInvoice({ userId: "", amount: "", description: "", workDetails: "" });
       setIsCreateModalOpen(false);
     },
     onError: (error: any) => {
@@ -65,6 +65,17 @@ export default function AdminInvoices() {
       toast({ title: "Facture modifiée", description: "La facture a été modifiée avec succès." });
       setEditingInvoice(null);
       setIsEditModalOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const sendEmailMutation = useMutation({
+    mutationFn: (id: string) => apiPost(`/api/admin/invoices/${id}/send-email`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
+      toast({ title: "Email envoyé", description: "La facture a été envoyée par email avec succès." });
     },
     onError: (error: any) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
@@ -266,6 +277,17 @@ export default function AdminInvoices() {
               >
                 <Download className="w-4 h-4 mr-1" />
                 PDF
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendEmailMutation.mutate(invoice.id)}
+                disabled={sendEmailMutation.isPending}
+                data-testid={`button-email-${invoice.id}`}
+              >
+                <Send className="w-4 h-4 mr-1" />
+                {sendEmailMutation.isPending ? "Envoi..." : "Email"}
               </Button>
               
               <Button
