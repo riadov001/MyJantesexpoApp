@@ -108,7 +108,34 @@ export default function AdminBookings() {
                 <div className="flex items-center space-x-2 mb-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm" data-testid={`booking-date-${booking.id}`}>
-                    {formatDate(booking.date)} - {booking.timeSlot}
+                    {booking.startDateTime && booking.endDateTime ? (
+                      <>
+                        {new Date(booking.startDateTime).toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric"
+                        })} {new Date(booking.startDateTime).toLocaleTimeString("fr-FR", {
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                        {" → "}
+                        {new Date(booking.endDateTime).toLocaleDateString("fr-FR", {
+                          day: "numeric", 
+                          month: "short",
+                          year: "numeric"
+                        })} {new Date(booking.endDateTime).toLocaleTimeString("fr-FR", {
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                        {new Date(booking.startDateTime).toDateString() !== new Date(booking.endDateTime).toDateString() && (
+                          <span className="text-green-400 ml-2">
+                            ({Math.ceil((new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime()) / (1000 * 60 * 60 * 24))} jour{Math.ceil((new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime()) / (1000 * 60 * 60 * 24)) > 1 ? 's' : ''})
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      `${formatDate(booking.date || '')} - ${booking.timeSlot || ''}`
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2 mb-2">

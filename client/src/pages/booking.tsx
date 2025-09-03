@@ -14,9 +14,12 @@ import { useLocation } from "wouter";
 
 // Créneaux suggérés pour aider l'utilisateur
 const suggestedTimes = [
-  { label: "Matin (9h - 12h)", start: "09:00", end: "12:00" },
-  { label: "Après-midi (14h - 17h)", start: "14:00", end: "17:00" },
-  { label: "Toute la journée (9h - 17h)", start: "09:00", end: "17:00" },
+  { label: "Matin (9h - 12h)", start: "09:00", end: "12:00", days: 0 },
+  { label: "Après-midi (14h - 17h)", start: "14:00", end: "17:00", days: 0 },
+  { label: "Toute la journée (9h - 17h)", start: "09:00", end: "17:00", days: 0 },
+  { label: "2 jours (Dépôt 9h → Récupération lendemain 17h)", start: "09:00", end: "17:00", days: 1 },
+  { label: "3 jours (Dépôt 9h → Récupération J+2 17h)", start: "09:00", end: "17:00", days: 2 },
+  { label: "1 semaine (Dépôt lundi 9h → Récupération vendredi 17h)", start: "09:00", end: "17:00", days: 4 },
 ];
 
 export default function Booking() {
@@ -25,7 +28,7 @@ export default function Booking() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<string>("");
 
-  const { data: services } = useQuery({
+  const { data: services } = useQuery<Service[]>({
     queryKey: ["/api/services"],
   });
 
@@ -65,10 +68,14 @@ export default function Booking() {
     createBookingMutation.mutate(data);
   };
 
-  const handleSuggestedTime = (start: string, end: string) => {
+  const handleSuggestedTime = (start: string, end: string, days: number) => {
     if (selectedDate) {
+      const startDate = new Date(selectedDate);
+      const endDate = new Date(selectedDate);
+      endDate.setDate(startDate.getDate() + days);
+      
       form.setValue("startDateTime", `${selectedDate}T${start}`);
-      form.setValue("endDateTime", `${selectedDate}T${end}`);
+      form.setValue("endDateTime", `${endDate.toISOString().split('T')[0]}T${end}`);
     }
   };
 
@@ -79,7 +86,7 @@ export default function Booking() {
     <div className="pb-24">
       <div className="px-6 py-4 border-b border-border">
         <h2 className="text-xl font-bold">Réservation</h2>
-        <p className="text-sm text-muted-foreground">Planifiez votre intervention</p>
+        <p className="text-sm text-muted-foreground">Planifiez votre intervention • Séjours multi-jours acceptés</p>
       </div>
 
       <div className="px-6 py-6 space-y-6">
@@ -133,13 +140,16 @@ export default function Booking() {
           {selectedDate && (
             <div>
               <Label className="block text-sm font-medium mb-2">Créneaux suggérés (optionnel)</Label>
+              <p className="text-xs text-muted-foreground mb-3">
+                💡 Votre véhicule peut rester plusieurs jours au garage selon vos besoins
+              </p>
               <div className="grid grid-cols-1 gap-2">
                 {suggestedTimes.map((suggestion, index) => (
                   <button
                     key={index}
                     type="button"
                     className="p-3 border rounded-xl text-sm transition-colors border-border hover:border-primary hover:bg-secondary text-left"
-                    onClick={() => handleSuggestedTime(suggestion.start, suggestion.end)}
+                    onClick={() => handleSuggestedTime(suggestion.start, suggestion.end, suggestion.days)}
                     data-testid={`button-suggestion-${index}`}
                   >
                     {suggestion.label}
@@ -150,16 +160,15 @@ export default function Booking() {
           )}
 
           {/* Heure de début et fin */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
               <Label htmlFor="startDateTime" className="block text-sm font-medium mb-2">
-                Heure de début
+                📅 Date et heure de dépôt du véhicule
               </Label>
               <Input
                 id="startDateTime"
                 type="datetime-local"
-                min={selectedDate ? `${selectedDate}T08:00` : undefined}
-                max={selectedDate ? `${selectedDate}T18:00` : undefined}
+                min={today ? `${today}T08:00` : undefined}
                 className="form-input"
                 data-testid="input-start-time"
                 {...form.register("startDateTime")}
@@ -172,13 +181,15 @@ export default function Booking() {
             </div>
             <div>
               <Label htmlFor="endDateTime" className="block text-sm font-medium mb-2">
-                Heure de fin
+                📅 Date et heure de récupération du véhicule
               </Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Peut être le même jour ou plusieurs jours plus tard
+              </p>
               <Input
                 id="endDateTime"
                 type="datetime-local"
-                min={selectedDate ? `${selectedDate}T08:00` : undefined}
-                max={selectedDate ? `${selectedDate}T18:00` : undefined}
+                min={form.watch("startDateTime") || (today ? `${today}T08:00` : undefined)}
                 className="form-input"
                 data-testid="input-end-time"
                 {...form.register("endDateTime")}
