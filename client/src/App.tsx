@@ -72,11 +72,20 @@ function Router() {
   const [location] = useLocation();
   const isAuthenticated = AuthService.isAuthenticated();
   const showBottomNav = isAuthenticated && location !== "/login" && location !== "/contact";
+  const showDesktopNav = isAuthenticated && location !== "/login";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <DesktopNavigation />
-      <div className="responsive-container bg-background min-h-screen relative lg:max-w-none lg:px-6">
+      {/* Desktop Navigation - masquée sur mobile */}
+      {showDesktopNav && (
+        <div className="hidden lg:block">
+          <DesktopNavigation />
+        </div>
+      )}
+      
+      {/* Container principal avec padding pour desktop nav */}
+      <div className={`bg-background min-h-screen relative ${showDesktopNav ? 'lg:pt-0' : ''}`}>
+        <div className="responsive-container lg:max-w-none lg:px-6">
 
         <Switch>
           <Route path="/login" component={Login} />
@@ -108,7 +117,13 @@ function Router() {
           </Route>
         </Switch>
 
-        {showBottomNav && <BottomNavigation />}
+        {/* Bottom Navigation - masquée sur desktop */}
+        {showBottomNav && (
+          <div className="lg:hidden">
+            <BottomNavigation />
+          </div>
+        )}
+        </div>
       </div>
     </div>
   );

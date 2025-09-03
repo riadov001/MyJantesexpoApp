@@ -16,7 +16,7 @@ export default function History() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: history, isLoading } = useQuery({
+  const { data: history, isLoading } = useQuery<HistoryData>({
     queryKey: ["/api/history"],
   });
 

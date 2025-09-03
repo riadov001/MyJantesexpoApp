@@ -32,7 +32,7 @@ export default function Booking() {
     queryKey: ["/api/services"],
   });
 
-  const form = useForm<InsertBooking>({
+  const form = useForm<any>({
     resolver: zodResolver(insertBookingSchema),
     defaultValues: {
       serviceId: "",
@@ -40,12 +40,14 @@ export default function Booking() {
       endDateTime: "",
       vehicleBrand: "",
       vehiclePlate: "",
+      wheelQuantity: 4,
+      wheelDiameter: "",
       notes: "",
     },
   });
 
   const createBookingMutation = useMutation({
-    mutationFn: (data: InsertBooking) => apiPost("/api/bookings", data),
+    mutationFn: (data: any) => apiPost("/api/bookings", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/history"] });
@@ -64,8 +66,8 @@ export default function Booking() {
     },
   });
 
-  const onSubmit = (data: InsertBooking) => {
-    // Log pour debug
+  const onSubmit = (data: any) => {
+    // Log pour debug  
     console.log("Données de réservation envoyées:", data);
     createBookingMutation.mutate(data);
   };
