@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, User, Euro, Clock, Image } from "lucide-react";
+import { useLocation } from "wouter";
 import type { Quote } from "@shared/schema";
 
 export default function AdminQuotes() {
   const [priceInput, setPriceInput] = useState<{ [key: string]: string }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: quotes, isLoading } = useQuery<Quote[]>({
     queryKey: ["/api/admin/quotes"],
@@ -115,9 +117,18 @@ export default function AdminQuotes() {
   return (
     <div className="pb-24 md:pb-0">
       <div className="px-6 py-4 border-b border-border">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-xl font-bold md:text-2xl" data-testid="admin-quotes-title">Gestion des Devis</h2>
-          <p className="text-sm text-muted-foreground md:text-base">Chiffrez et validez les demandes de devis</p>
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold md:text-2xl" data-testid="admin-quotes-title">Gestion des Devis</h2>
+            <p className="text-sm text-muted-foreground md:text-base">Chiffrez et validez les demandes de devis</p>
+          </div>
+          <Button
+            onClick={() => setLocation("/admin/quotes/create")}
+            className="ios-button"
+            data-testid="button-create-quote"
+          >
+            + Nouveau Devis
+          </Button>
         </div>
       </div>
 

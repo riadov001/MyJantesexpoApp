@@ -15,6 +15,7 @@ import CGV from "@/pages/cgv";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminBookings from "@/pages/admin-bookings";
 import AdminQuotes from "@/pages/admin-quotes";
+import AdminCreateQuote from "@/pages/admin-create-quote";
 import AdminInvoices from "@/pages/admin-invoices";
 import AdminUsers from "@/pages/admin-users";
 import AdminWorkProgress from "@/pages/admin-work-progress";
@@ -95,6 +96,7 @@ function Router() {
           <Route path="/admin" component={() => <AdminRoute component={AdminDashboard} />} />
           <Route path="/admin/bookings" component={() => <AdminRoute component={AdminBookings} />} />
           <Route path="/admin/quotes" component={() => <AdminRoute component={AdminQuotes} />} />
+          <Route path="/admin/quotes/create" component={() => <AdminRoute component={AdminCreateQuote} />} />
           <Route path="/admin/invoices" component={() => <AdminRoute component={AdminInvoices} />} />
           <Route path="/admin/users" component={() => <AdminRoute component={AdminUsers} />} />
           <Route path="/admin/work-progress" component={() => <AdminRoute component={AdminWorkProgress} />} />
