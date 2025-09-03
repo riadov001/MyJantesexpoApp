@@ -196,13 +196,11 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   date: true,
   timeSlot: true,
 }).extend({
-  // Validation personnalisée pour les nouvelles colonnes
-  startDateTime: z.string().min(1, "Heure de début requise"),
-  endDateTime: z.string().min(1, "Heure de fin requise"),
+  // Validation personnalisée pour les nouvelles colonnes - convertir en Date
+  startDateTime: z.string().min(1, "Heure de début requise").transform(str => new Date(str)),
+  endDateTime: z.string().min(1, "Heure de fin requise").transform(str => new Date(str)),
 }).refine((data) => {
-  const start = new Date(data.startDateTime);
-  const end = new Date(data.endDateTime);
-  return start < end;
+  return data.startDateTime < data.endDateTime;
 }, {
   message: "L'heure de fin doit être après l'heure de début",
   path: ["endDateTime"],
