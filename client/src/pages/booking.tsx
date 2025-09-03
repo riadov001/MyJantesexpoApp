@@ -65,6 +65,8 @@ export default function Booking() {
   });
 
   const onSubmit = (data: InsertBooking) => {
+    // Log pour debug
+    console.log("Données de réservation envoyées:", data);
     createBookingMutation.mutate(data);
   };
 
@@ -83,13 +85,13 @@ export default function Booking() {
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 md:pb-0">
       <div className="px-6 py-4 border-b border-border">
-        <h2 className="text-xl font-bold">Réservation</h2>
+        <h2 className="text-xl md:text-2xl font-bold">Réservation</h2>
         <p className="text-sm text-muted-foreground">Planifiez votre intervention • Séjours multi-jours acceptés</p>
       </div>
 
-      <div className="px-6 py-6 space-y-6">
+      <div className="px-6 py-6 max-w-2xl mx-auto space-y-6">
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Service Selection */}
           <div>

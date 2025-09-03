@@ -113,13 +113,16 @@ export default function AdminQuotes() {
   }
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 md:pb-0">
       <div className="px-6 py-4 border-b border-border">
-        <h2 className="text-xl font-bold" data-testid="admin-quotes-title">Gestion des Devis</h2>
-        <p className="text-sm text-muted-foreground">Chiffrez et validez les demandes de devis</p>
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-xl font-bold md:text-2xl" data-testid="admin-quotes-title">Gestion des Devis</h2>
+          <p className="text-sm text-muted-foreground md:text-base">Chiffrez et validez les demandes de devis</p>
+        </div>
       </div>
 
-      <div className="px-6 py-6 space-y-4">
+      <div className="px-6 py-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {quotes?.map((quote) => (
           <div key={quote.id} className="ios-card" data-testid={`quote-${quote.id}`}>
             <div className="flex justify-between items-start mb-4">
@@ -251,11 +254,12 @@ export default function AdminQuotes() {
         ))}
 
         {!quotes?.length && (
-          <div className="ios-card text-center py-8">
+          <div className="ios-card text-center py-8 lg:col-span-3">
             <FileText className="text-muted-foreground mx-auto mb-4" size={48} />
             <p className="text-muted-foreground">Aucun devis trouvé</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
