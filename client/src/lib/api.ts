@@ -33,8 +33,20 @@ export async function apiRequest(
   }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(response.status, errorData.message || "Une erreur est survenue");
+    // Essayer de parser le JSON seulement si le content-type est JSON
+    const contentType = response.headers.get("content-type");
+    let errorMessage = "Une erreur est survenue";
+    
+    if (contentType && contentType.includes("application/json")) {
+      const errorData = await response.json().catch(() => ({}));
+      errorMessage = errorData.message || errorMessage;
+    } else {
+      // Pour les réponses non-JSON (comme les PDFs), lire le texte
+      const errorText = await response.text().catch(() => "");
+      if (errorText) errorMessage = errorText;
+    }
+    
+    throw new ApiError(response.status, errorMessage);
   }
 
   return response;

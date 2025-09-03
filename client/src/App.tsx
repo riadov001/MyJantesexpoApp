@@ -77,15 +77,11 @@ function Router() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Desktop Navigation - masquée sur mobile */}
-      {showDesktopNav && (
-        <div className="hidden lg:block">
-          <DesktopNavigation />
-        </div>
-      )}
+      {showDesktopNav && <DesktopNavigation />}
       
       {/* Container principal avec padding pour desktop nav */}
       <div className={`bg-background min-h-screen relative ${showDesktopNav ? 'lg:pt-0' : ''}`}>
-        <div className="responsive-container lg:max-w-none lg:px-6">
+        <div className="w-full max-w-sm mx-auto lg:max-w-none lg:px-0">
 
         <Switch>
           <Route path="/login" component={Login} />
@@ -119,7 +115,7 @@ function Router() {
 
         {/* Bottom Navigation - masquée sur desktop */}
         {showBottomNav && (
-          <div className="lg:hidden">
+          <div className="mobile-nav-hidden">
             <BottomNavigation />
           </div>
         )}

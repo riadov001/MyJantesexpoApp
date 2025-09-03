@@ -152,7 +152,23 @@
 }
 
 .desktop-nav {
-  @apply hidden lg:block;
+  @apply block;
+}
+
+/* Force responsive visibility */
+@media (max-width: 1023px) {
+  .desktop-nav {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .desktop-nav {
+    display: block !important;
+  }
+  .mobile-nav-hidden {
+    display: none !important;
+  }
 }
 
 .ios-blur {
