@@ -246,13 +246,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bookings", authenticateToken, async (req: any, res) => {
     try {
       const bookingData = insertBookingSchema.parse(req.body);
-      const booking = await storage.createBooking({
+      
+      // Convertir manuellement les dates si nécessaire
+      const bookingToCreate = {
         ...bookingData,
         userId: req.user.userId,
-      });
+        startDateTime: bookingData.startDateTime instanceof Date ? bookingData.startDateTime : new Date(bookingData.startDateTime),
+        endDateTime: bookingData.endDateTime instanceof Date ? bookingData.endDateTime : new Date(bookingData.endDateTime),
+      };
+      
+      const booking = await storage.createBooking(bookingToCreate);
       res.status(201).json(booking);
-    } catch (error) {
-      res.status(400).json({ message: "Données de réservation invalides" });
+    } catch (error: any) {
+      if (error.errors) {
+        res.status(400).json({ message: "Données de réservation invalides", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Données de réservation invalides", error: error.message });
+      }
     }
   });
 
