@@ -32,7 +32,10 @@ export class AuthService {
 
   static getAuthHeaders(): HeadersInit {
     const token = this.getToken();
-    console.log("Token utilisé pour auth:", token ? "Présent" : "Absent");
     return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  static logout(): void {
+    this.removeToken();
   }
 }
