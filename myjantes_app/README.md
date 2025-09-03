@@ -300,11 +300,10 @@ test(quotes): add integration tests for quote workflow
 ## 📞 Support et Maintenance
 
 ### Support Technique
-- **Email** : dev@myjantes.com
+- **Email** : straightpcompany@gmail.com
 - **Documentation** : Wiki interne complet
 - **Issues** : GitHub Issues avec templates
-- **Slack** : Canal #myjantes-dev pour support rapide
-
+- **Slack** : à venir 
 ### Maintenance et Updates
 - **Updates Flutter** : Trimestrielles avec tests de régression
 - **Dépendances** : Audit mensuel des vulnérabilités
@@ -317,6 +316,6 @@ test(quotes): add integration tests for quote workflow
   <h3>🚀 Application Prête pour la Production</h3>
   <p><strong>Architecture Clean • Design Premium • Performance Optimale</strong></p>
   <br>
-  <p>Développé avec ❤️ par l'équipe MyJantes</p>
-  <p><em>© 2024 MyJantes. Tous droits réservés.</em></p>
+  <p>Développé avec ❤️ par Straight Path</p>
+  <p><em>© 2025 MyJantes. Tous droits réservés.</em></p>
 </div>
