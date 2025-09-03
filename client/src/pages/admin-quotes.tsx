@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, downloadFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -236,7 +236,7 @@ export default function AdminQuotes() {
                       variant="outline" 
                       size="sm"
                       className="flex-1"
-                      onClick={() => window.open(`/api/quotes/${quote.id}/pdf`, '_blank')}
+                      onClick={() => downloadFile(`/api/quotes/${quote.id}/pdf`, `devis-${quote.id}.pdf`)}
                       data-testid={`button-download-pdf-${quote.id}`}
                     >
                       📄 PDF Devis

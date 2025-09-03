@@ -33,6 +33,9 @@ const createQuoteSchema = z.object({
   vehicleModel: z.string().min(1, "Le modèle du véhicule est requis"),
   vehicleYear: z.string().min(1, "L'année du véhicule est requise"),
   vehicleEngine: z.string().optional(),
+  // Informations jantes
+  wheelQuantity: z.number().optional(),
+  wheelDiameter: z.string().optional(),
   // Description du travail
   description: z.string().min(10, "La description doit contenir au moins 10 caractères"),
 });
@@ -353,6 +356,44 @@ export default function AdminCreateQuote() {
                   data-testid="input-vehicle-engine"
                   {...form.register("vehicleEngine")}
                 />
+              </div>
+            </div>
+
+            {/* Informations jantes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <Label htmlFor="wheelQuantity" className="block text-sm font-medium mb-2">
+                  Nombre de jantes
+                </Label>
+                <Select onValueChange={(value) => form.setValue("wheelQuantity", parseInt(value))}>
+                  <SelectTrigger className="form-input" data-testid="select-wheel-quantity">
+                    <SelectValue placeholder="Choisir le nombre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 jantes</SelectItem>
+                    <SelectItem value="4">4 jantes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="wheelDiameter" className="block text-sm font-medium mb-2">
+                  Diamètre (pouces)
+                </Label>
+                <Select onValueChange={(value) => form.setValue("wheelDiameter", value)}>
+                  <SelectTrigger className="form-input" data-testid="select-wheel-diameter">
+                    <SelectValue placeholder="Choisir le diamètre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15 pouces</SelectItem>
+                    <SelectItem value="16">16 pouces</SelectItem>
+                    <SelectItem value="17">17 pouces</SelectItem>
+                    <SelectItem value="18">18 pouces</SelectItem>
+                    <SelectItem value="19">19 pouces</SelectItem>
+                    <SelectItem value="20">20 pouces</SelectItem>
+                    <SelectItem value="21">21 pouces</SelectItem>
+                    <SelectItem value="22">22 pouces</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

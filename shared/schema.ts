@@ -43,6 +43,9 @@ export const bookings = pgTable("bookings", {
   timeSlot: text("time_slot"),
   vehicleBrand: text("vehicle_brand").notNull(),
   vehiclePlate: text("vehicle_plate").notNull(),
+  // Nouvelles colonnes pour jantes
+  wheelQuantity: integer("wheel_quantity"), // Nombre de jantes (2 ou 4)
+  wheelDiameter: text("wheel_diameter"), // Diamètre en pouces
   notes: text("notes"),
   status: text("status").default("pending"),
   assignedEmployee: varchar("assigned_employee").references(() => users.id),
@@ -61,6 +64,9 @@ export const quotes = pgTable("quotes", {
   vehicleModel: text("vehicle_model").notNull(),
   vehicleYear: text("vehicle_year").notNull(),
   vehicleEngine: text("vehicle_engine"),
+  // Nouvelles colonnes pour jantes
+  wheelQuantity: integer("wheel_quantity"), // Nombre de jantes (2 ou 4)
+  wheelDiameter: text("wheel_diameter"), // Diamètre en pouces
   description: text("description").notNull(),
   photos: jsonb("photos").default([]),
   amount: decimal("amount", { precision: 10, scale: 2 }),

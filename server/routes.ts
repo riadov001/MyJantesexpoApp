@@ -17,20 +17,14 @@ const authenticateToken = (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  console.log("Auth header:", authHeader);
-  console.log("Extracted token:", token ? "Present" : "Missing");
-
   if (!token) {
-    console.log("No token provided");
     return res.status(401).json({ message: 'Token d\'accès requis' });
   }
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (err) {
-      console.log("Token verification error:", err.message);
       return res.status(403).json({ message: 'Token invalide' });
     }
-    console.log("Token verified for user:", user.userId);
     req.user = user;
     next();
   });
@@ -338,12 +332,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // History route (combines quotes and invoices)
   app.get("/api/history", authenticateToken, async (req: any, res) => {
     try {
-      const [quotes, invoices] = await Promise.all([
+      const [bookings, quotes, invoices] = await Promise.all([
+        storage.getUserBookings(req.user.userId),
         storage.getUserQuotes(req.user.userId),
         storage.getUserInvoices(req.user.userId),
       ]);
 
       res.json({
+        bookings: bookings.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()),
         quotes: quotes.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()),
         invoices: invoices.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()),
       });
@@ -849,7 +845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Route pour génération PDF de devis
-  app.get("/api/quotes/:id/pdf", async (req: any, res) => {
+  app.get("/api/quotes/:id/pdf", authenticateToken, async (req: any, res) => {
     try {
       const quote = await storage.getQuote(req.params.id);
       if (!quote) {

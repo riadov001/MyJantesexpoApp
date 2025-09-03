@@ -22,6 +22,16 @@ export async function apiRequest(
 
   const response = await fetch(url, config);
 
+  // Si le token a expiré (403), déconnecter l'utilisateur
+  if (response.status === 403) {
+    const errorText = await response.text();
+    if (errorText.includes('Token invalide') || errorText.includes('jwt expired')) {
+      AuthService.logout();
+      window.location.href = '/login';
+      return response;
+    }
+  }
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new ApiError(response.status, errorData.message || "Une erreur est survenue");
@@ -56,4 +66,19 @@ export async function apiDelete<T>(url: string): Promise<T> {
     method: "DELETE",
   });
   return response.json();
+}
+
+// Fonction pour télécharger un fichier avec authentification
+export async function downloadFile(url: string, filename?: string): Promise<void> {
+  const response = await apiRequest(url);
+  const blob = await response.blob();
+  
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = filename || 'download';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(downloadUrl);
 }
