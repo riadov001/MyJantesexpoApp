@@ -25,7 +25,7 @@ export async function apiRequest(
   // Si le token a expiré (403), déconnecter l'utilisateur
   if (response.status === 403) {
     const errorText = await response.text();
-    if (errorText.includes('Token invalide') || errorText.includes('jwt expired')) {
+    if (errorText.includes('jwt expired')) {
       AuthService.logout();
       window.location.href = '/login';
       return response;
