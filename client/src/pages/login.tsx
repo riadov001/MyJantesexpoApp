@@ -86,23 +86,24 @@ export default function Login() {
   };
 
   return (
-    <div className="px-6 py-8 min-h-screen flex flex-col justify-center">
-      {/* Logo */}
-      <div className="text-center mb-12">
-        <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-          <img 
-            src={logoUrl} 
-            alt="MyJantes" 
-            className="w-full h-full object-contain"
-            data-testid="img-logo-login"
-          />
+    <div className="px-6 py-8 min-h-screen flex flex-col justify-center md:px-8 lg:px-12">
+      <div className="max-w-md mx-auto w-full">
+        {/* Logo */}
+        <div className="text-center mb-12">
+          <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center md:w-32 md:h-32">
+            <img 
+              src={logoUrl} 
+              alt="MyJantes" 
+              className="w-full h-full object-contain"
+              data-testid="img-logo-login"
+            />
+          </div>
+          <h1 className="text-3xl font-bold mb-2 md:text-4xl">MyJantes</h1>
+          <p className="text-muted-foreground md:text-lg">Votre expert en jantes et pneus</p>
         </div>
-        <h1 className="text-3xl font-bold mb-2">MyJantes</h1>
-        <p className="text-muted-foreground">Votre expert en jantes et pneus</p>
-      </div>
 
-      {/* Toggle Buttons */}
-      <div className="flex bg-secondary rounded-ios p-1 mb-6">
+        {/* Toggle Buttons */}
+        <div className="flex bg-secondary rounded-ios p-1 mb-6">
         <button
           type="button"
           className={`flex-1 py-2 text-center rounded-ios transition-all ${
@@ -127,7 +128,7 @@ export default function Login() {
         >
           Inscription
         </button>
-      </div>
+        </div>
 
       {/* Login Form */}
       {!isSignUp && (
@@ -266,18 +267,19 @@ export default function Login() {
         </form>
       )}
 
-      {/* Footer */}
-      <div className="mt-auto pt-8 text-center">
-        <p className="text-xs text-muted-foreground">
-          En vous connectant, vous acceptez nos{" "}
-          <a href="/cgv" className="text-primary">
-            CGV
-          </a>{" "}
-          et{" "}
-          <a href="/mentions-legales" className="text-primary">
-            Mentions légales
-          </a>
-        </p>
+        {/* Footer */}
+        <div className="mt-auto pt-8 text-center">
+          <p className="text-xs text-muted-foreground">
+            En vous connectant, vous acceptez nos{" "}
+            <a href="/cgv" className="text-primary">
+              CGV
+            </a>{" "}
+            et{" "}
+            <a href="/mentions-legales" className="text-primary">
+              Mentions légales
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
