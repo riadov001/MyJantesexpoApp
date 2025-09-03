@@ -17,14 +17,20 @@ const authenticateToken = (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  console.log("Auth header:", authHeader);
+  console.log("Extracted token:", token ? "Present" : "Missing");
+
   if (!token) {
+    console.log("No token provided");
     return res.status(401).json({ message: 'Token d\'accès requis' });
   }
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (err) {
+      console.log("Token verification error:", err.message);
       return res.status(403).json({ message: 'Token invalide' });
     }
+    console.log("Token verified for user:", user.userId);
     req.user = user;
     next();
   });
@@ -105,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword 
       });
 
-      const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+      const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
       
       res.status(201).json({ 
         token, 
@@ -952,6 +958,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Improved quote to invoice conversion
+  // Create new quote from admin with client info
+  app.post("/api/admin/quotes/create", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const quoteData = req.body;
+      
+      // First, check if user exists or create them
+      let user = await storage.getUserByEmail(quoteData.clientEmail);
+      
+      if (!user) {
+        // Create new user with provided info
+        const hashedPassword = await bcrypt.hash("temp123", 10); // Temporary password
+        const newUser = await storage.createUser({
+          name: quoteData.clientName,
+          email: quoteData.clientEmail,
+          password: hashedPassword,
+          phone: quoteData.clientPhone || "",
+          address: quoteData.clientAddress || "",
+          clientType: quoteData.clientType,
+          companyName: quoteData.companyName,
+          companyAddress: quoteData.companyAddress,
+          companySiret: quoteData.companySiret,
+          companyVat: quoteData.companyVat,
+          companyApe: quoteData.companyApe,
+          companyContact: quoteData.companyContact,
+        });
+        user = newUser;
+      }
+
+      // Create quote for this user
+      const quote = await storage.createQuote({
+        userId: user.id,
+        vehicleBrand: quoteData.vehicleBrand,
+        vehicleModel: quoteData.vehicleModel,
+        vehicleYear: quoteData.vehicleYear,
+        vehicleEngine: quoteData.vehicleEngine,
+        description: quoteData.description,
+        status: "pending",
+        lastModifiedBy: req.user.userId,
+      });
+
+      // Create notification for the user
+      await storage.createNotification({
+        userId: user.id,
+        title: "Nouveau devis créé",
+        message: "Un devis a été créé pour votre véhicule. Vous recevrez une réponse prochainement.",
+        type: "quote",
+        relatedId: quote.id,
+      });
+
+      res.status(201).json({ quote, user });
+    } catch (error) {
+      console.error("Error creating quote:", error);
+      res.status(500).json({ message: "Erreur lors de la création du devis" });
+    }
+  });
+
   app.post("/api/admin/quotes/:id/convert-to-invoice", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const quote = await storage.getQuote(req.params.id);
