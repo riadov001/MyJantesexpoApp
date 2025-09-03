@@ -831,8 +831,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PDF generation routes - moved outside admin path to avoid global auth
-  app.get("/api/invoices/:id/pdf", async (req: any, res) => {
+  // PDF generation routes - avec authentification
+  app.get("/api/invoices/:id/pdf", authenticateToken, async (req: any, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -847,7 +847,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="facture-${invoice.id.substring(0, 8)}.pdf"`);
-      res.send(pdfBuffer);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.end(pdfBuffer, 'binary');
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ message: "Erreur lors de la génération du PDF" });
@@ -870,7 +871,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="devis-${quote.id.substring(0, 8)}.pdf"`);
-      res.send(pdfBuffer);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.end(pdfBuffer, 'binary');
     } catch (error) {
       console.error("Error generating quote PDF:", error);
       res.status(500).json({ message: "Erreur lors de la génération du PDF du devis" });

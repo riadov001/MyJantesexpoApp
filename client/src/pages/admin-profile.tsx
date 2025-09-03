@@ -42,20 +42,13 @@ export default function AdminProfile() {
   const isEmployee = user?.role === "employee";
   const [selectedTab, setSelectedTab] = useState("profile");
 
-  const { data: auditLogs, isLoading: auditLoading } = useQuery({
-    queryKey: ["/api/admin/audit-logs", user?.id],
-    enabled: !!(user?.id && (isAdmin || isEmployee)),
-  });
-
-  const { data: assignments, isLoading: assignmentsLoading } = useQuery({
-    queryKey: ["/api/admin/employee-assignments", user?.id],
-    enabled: !!(user?.id && isEmployee),
-  });
-
-  const { data: employees, isLoading: employeesLoading } = useQuery({
-    queryKey: ["/api/admin/employees"],
-    enabled: isAdmin,
-  });
+  // Temporairement désactivé - endpoints pas encore implémentés
+  const auditLogs: any[] = [];
+  const auditLoading = false;
+  const assignments: any[] = [];
+  const assignmentsLoading = false;
+  const employees: any[] = [];
+  const employeesLoading = false;
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("fr-FR", {
@@ -143,7 +136,7 @@ export default function AdminProfile() {
 
       <div className="px-6 py-6">
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className={`grid w-full grid-cols-${isAdmin ? '4' : isEmployee ? '3' : '2'}`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : isEmployee ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="profile">Profil</TabsTrigger>
             <TabsTrigger value="activity">Activité</TabsTrigger>
             {isEmployee && <TabsTrigger value="assignments">Assignations</TabsTrigger>}
