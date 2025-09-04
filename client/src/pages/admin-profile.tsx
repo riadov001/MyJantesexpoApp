@@ -16,6 +16,7 @@ import {
   Eye,
   Users
 } from "lucide-react";
+import { CacheManager } from "@/components/cache-manager";
 
 interface AuditLog {
   id: string;
@@ -136,9 +137,10 @@ export default function AdminProfile() {
 
       <div className="px-6 py-6">
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : isEmployee ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-5' : isEmployee ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="profile">Profil</TabsTrigger>
             <TabsTrigger value="activity">Activité</TabsTrigger>
+            <TabsTrigger value="cache">Cache</TabsTrigger>
             {isEmployee && <TabsTrigger value="assignments">Assignations</TabsTrigger>}
             {isAdmin && <TabsTrigger value="employees">Équipe</TabsTrigger>}
           </TabsList>
@@ -176,6 +178,10 @@ export default function AdminProfile() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="cache" className="space-y-6">
+            <CacheManager />
           </TabsContent>
 
           <TabsContent value="activity" className="space-y-6">

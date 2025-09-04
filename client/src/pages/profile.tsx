@@ -1,7 +1,7 @@
 import { AuthService } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Phone, Bell, FileText, Shield, LogOut, User, Settings, Key, Edit, Building } from "lucide-react";
-import { useState } from "react";
+import { Phone, Bell, FileText, Shield, LogOut, User as UserIcon, Settings, Key, Edit, Building } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { changePasswordSchema, updateClientProfileSchema, type ChangePasswordData, type UpdateClientProfileData } from "@shared/schema";
+import { changePasswordSchema, updateClientProfileSchema, type ChangePasswordData, type UpdateClientProfileData, type User } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiPost, apiPut } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,7 +25,7 @@ export default function Profile() {
   const queryClient = useQueryClient();
 
   // Récupérer les données complètes de l'utilisateur
-  const { data: fullUserData, isLoading } = useQuery({
+  const { data: fullUserData, isLoading } = useQuery<User>({
     queryKey: ["/api/auth/me"],
     enabled: !!user,
   });
@@ -57,20 +57,22 @@ export default function Profile() {
   });
 
   // Mettre à jour les valeurs par défaut quand les données sont chargées
-  if (fullUserData && !isLoading) {
-    profileForm.reset({
-      name: fullUserData.name || "",
-      phone: fullUserData.phone || "",
-      address: fullUserData.address || "",
-      clientType: fullUserData.clientType || "particulier",
-      companyName: fullUserData.companyName || "",
-      companyAddress: fullUserData.companyAddress || "",
-      companySiret: fullUserData.companySiret || "",
-      companyVat: fullUserData.companyVat || "",
-      companyApe: fullUserData.companyApe || "",
-      companyContact: fullUserData.companyContact || "",
-    });
-  }
+  useEffect(() => {
+    if (fullUserData && !isLoading) {
+      profileForm.reset({
+        name: fullUserData.name || "",
+        phone: fullUserData.phone || "",
+        address: fullUserData.address || "",
+        clientType: fullUserData.clientType || "particulier",
+        companyName: fullUserData.companyName || "",
+        companyAddress: fullUserData.companyAddress || "",
+        companySiret: fullUserData.companySiret || "",
+        companyVat: fullUserData.companyVat || "",
+        companyApe: fullUserData.companyApe || "",
+        companyContact: fullUserData.companyContact || "",
+      });
+    }
+  }, [fullUserData, isLoading]);
 
   // Mutations
   const changePasswordMutation = useMutation({
@@ -149,7 +151,7 @@ export default function Profile() {
       testId: "button-admin"
     },
     {
-      icon: User,
+      icon: UserIcon,
       label: "Profil Professionnel",
       action: () => setLocation("/admin-profile"),
       testId: "button-admin-profile"
@@ -166,7 +168,7 @@ export default function Profile() {
         {/* Profile Header */}
         <div className="text-center">
           <div className="w-20 h-20 bg-primary rounded-full mx-auto mb-4 flex items-center justify-center">
-            <User className="text-3xl text-white" size={40} />
+            <UserIcon className="text-3xl text-white" size={40} />
           </div>
           <h3 className="font-semibold text-lg" data-testid="text-user-name">
             {fullUserData?.name || user?.name || "Utilisateur"}
