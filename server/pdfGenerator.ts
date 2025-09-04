@@ -455,63 +455,69 @@ ${300 + content.length}
     </div>
     ` : ''}
 
-    <table class="services-table">
+    <table class="invoice-table">
         <thead>
             <tr>
-                <th class="description-col">DESCRIPTION</th>
-                <th class="date-col">DATE</th>
-                <th class="qty-col">QTE</th>
-                <th class="unit-col">UNITE</th>
-                <th class="price-col">PRIX HT</th>
-                <th class="vat-col">TVA</th>
-                <th class="total-col">TOTAL TTC</th>
+                <th class="col-description">DESCRIPTION</th>
+                <th class="col-date">DATE</th>
+                <th class="col-qty">QTE</th>
+                <th class="col-unit">UNITE</th>
+                <th class="col-price">PRIX HT</th>
+                <th class="col-vat">TVA</th>
+                <th class="col-total">TOTAL TTC</th>
             </tr>
         </thead>
         <tbody>
             ${items.map((item: any) => `
                 <tr>
-                    <td class="description-col">${item.description || invoice.description}</td>
-                    <td class="date-col">${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</td>
-                    <td class="qty-col">${item.quantity || 1}</td>
-                    <td class="unit-col">u</td>
-                    <td class="price-col">${(item.unitPrice || subtotal).toFixed(2)}€</td>
-                    <td class="vat-col">${vatRate}%</td>
-                    <td class="total-col">${(item.total || total).toFixed(2)}€</td>
+                    <td class="col-description">${item.description || invoice.description || 'Prestations jantes et pneus'}</td>
+                    <td class="col-date">${item.date || new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</td>
+                    <td class="col-qty">${item.quantity || 1}</td>
+                    <td class="col-unit">unité</td>
+                    <td class="col-price">${(item.unitPrice || subtotal).toFixed(2)} €</td>
+                    <td class="col-vat">${vatRate}%</td>
+                    <td class="col-total">${(item.total || (item.unitPrice || subtotal) * (item.quantity || 1) * (1 + vatRate/100)).toFixed(2)} €</td>
                 </tr>
             `).join('')}
         </tbody>
     </table>
 
-    <div class="totals-section">
-        <table class="totals-table">
+    <div class="totals">
+        <table>
             <tr>
-                <td class="label">HT</td>
-                <td>${subtotal.toFixed(2)}€</td>
+                <td class="total-label">Total HT</td>
+                <td class="total-amount">${subtotal.toFixed(2)} €</td>
             </tr>
             <tr>
-                <td class="label">TVA ${vatRate}%</td>
-                <td>${vatAmount.toFixed(2)}€</td>
+                <td class="total-label">TVA ${vatRate}%</td>
+                <td class="total-amount">${vatAmount.toFixed(2)} €</td>
             </tr>
-            <tr class="total-final">
-                <td class="label">Total TTC</td>
-                <td>${total.toFixed(2)}€</td>
+            <tr class="final-total">
+                <td class="total-label">TOTAL TTC</td>
+                <td class="total-amount">${total.toFixed(2)} €</td>
             </tr>
         </table>
     </div>
 
-    <div class="bottom-section">
-        <div class="payment-terms">
+    <div class="payment-section">
+        <div class="payment-info">
             <h4>Moyens de paiement</h4>
-            <div>Banque: SOCIETE GENERALE</div>
-            <div>SWIFT/BIC: SOGEFRPP</div>
-            <div>IBAN: FR76 3000 3029 5800 0201 6936 525</div>
+            <div class="payment-line">Banque: SOCIETE GENERALE</div>
+            <div class="payment-line">Code Swift/BIC: SOGEFRPP</div>
+            <div class="payment-line">IBAN: FR76 3000 3029 5800 0201 6936 525</div>
         </div>
         
-        <div class="conditions">
-            <h4>Conditions de paiement</h4>
-            <div>30 jours fin de mois</div>
-            <div>Escompte 2% à 8 jours</div>
+        <div class="legal-info">
+            <h4>Conditions de règlement</h4>
+            <div class="legal-line">Paiement: 30 jours fin de mois</div>
+            <div class="legal-line">Escompte: 2% à 8 jours</div>
+            <div class="legal-line">Retard de paiement: 3 fois le taux légal</div>
+            <div class="legal-line">Indemnité forfaitaire: 40€</div>
         </div>
+    </div>
+
+    <div class="footer-line">
+        MyJantes - Spécialiste jantes et pneus - SIRET: 123 456 789 00012 - TVA: FR12345678900
     </div>
 
     ${invoice.photosBefore?.length || invoice.photosAfter?.length ? `
@@ -539,11 +545,6 @@ ${300 + content.length}
     </div>
     ` : ''}
 
-    <div class="footer">
-        <div><strong>MY JANTES - SASU</strong></div>
-        <div>46 rue de la convention 62800 Lievin</div>
-        <div>Numéro de SIRET: 91367819900021 - Numéro de TVA FR73913678199</div>
-    </div>
 </body>
 </html>
         `;
