@@ -43,16 +43,16 @@ export default function Profile() {
   const profileForm = useForm<UpdateClientProfileData>({
     resolver: zodResolver(updateClientProfileSchema),
     defaultValues: {
-      name: fullUserData?.name || "",
-      phone: fullUserData?.phone || "",
-      address: fullUserData?.address || "",
-      clientType: fullUserData?.clientType || "particulier",
-      companyName: fullUserData?.companyName || "",
-      companyAddress: fullUserData?.companyAddress || "",
-      companySiret: fullUserData?.companySiret || "",
-      companyVat: fullUserData?.companyVat || "",
-      companyApe: fullUserData?.companyApe || "",
-      companyContact: fullUserData?.companyContact || "",
+      name: "",
+      phone: "",
+      address: "",
+      clientType: "particulier",
+      companyName: "",
+      companyAddress: "",
+      companySiret: "",
+      companyVat: "",
+      companyApe: "",
+      companyContact: "",
     },
   });
 
@@ -63,7 +63,7 @@ export default function Profile() {
         name: fullUserData.name || "",
         phone: fullUserData.phone || "",
         address: fullUserData.address || "",
-        clientType: fullUserData.clientType || "particulier",
+        clientType: (fullUserData.clientType as "particulier" | "professionnel") || "particulier",
         companyName: fullUserData.companyName || "",
         companyAddress: fullUserData.companyAddress || "",
         companySiret: fullUserData.companySiret || "",
@@ -72,7 +72,7 @@ export default function Profile() {
         companyContact: fullUserData.companyContact || "",
       });
     }
-  }, [fullUserData, isLoading]);
+  }, [fullUserData, isLoading, profileForm]);
 
   // Mutations
   const changePasswordMutation = useMutation({
