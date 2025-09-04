@@ -3,8 +3,10 @@ import {
   type Quote, type InsertQuote, type Invoice, type InsertInvoice, type Notification, 
   type InsertNotification, type WorkProgress, type InsertWorkProgress, type AuditLog, type InsertAuditLog,
   type BookingAssignment, type InsertBookingAssignment, type TimeSlotConfig, type InsertTimeSlotConfig,
-  type UpdateClientProfileData,
-  users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings, auditLogs, bookingAssignments, timeSlotConfigs
+  type UserGroup, type InsertUserGroup, type UserGroupMember, type InsertUserGroupMember,
+  type LeaveRequest, type InsertLeaveRequest, type UpdateClientProfileData,
+  users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings, auditLogs, 
+  bookingAssignments, timeSlotConfigs, userGroups, userGroupMembers, leaveRequests
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -83,6 +85,25 @@ export interface IStorage {
   // Additional booking methods
   getBookings(): Promise<Booking[]>;
   getBooking(id: string): Promise<Booking | undefined>;
+  
+  // User Groups
+  getUserGroups(): Promise<UserGroup[]>;
+  getUserGroup(id: string): Promise<UserGroup | undefined>;
+  createUserGroup(group: InsertUserGroup): Promise<UserGroup>;
+  updateUserGroup(id: string, updates: Partial<InsertUserGroup>): Promise<UserGroup | undefined>;
+  deleteUserGroup(id: string): Promise<void>;
+  getUsersByGroup(groupId: string): Promise<User[]>;
+  getUserGroupMemberships(userId: string): Promise<UserGroup[]>;
+  addUserToGroup(userId: string, groupId: string, addedBy: string): Promise<UserGroupMember>;
+  removeUserFromGroup(userId: string, groupId: string): Promise<void>;
+  
+  // Leave Requests
+  getLeaveRequests(employeeId?: string): Promise<LeaveRequest[]>;
+  getLeaveRequest(id: string): Promise<LeaveRequest | undefined>;
+  createLeaveRequest(request: InsertLeaveRequest): Promise<LeaveRequest>;
+  updateLeaveRequestStatus(id: string, status: string, approvedBy: string, notes?: string): Promise<LeaveRequest | undefined>;
+  getUserLeaveStatus(userId: string): Promise<{isOnLeave: boolean, leaveEnd?: Date}>;
+  updateUserLeaveStatus(userId: string, isOnLeave: boolean, startDate?: Date, endDate?: Date, reason?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -561,6 +582,154 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.insert(adminSettings).values(data);
     }
+  }
+
+  // User Groups Implementation
+  async getUserGroups(): Promise<UserGroup[]> {
+    return await db.select().from(userGroups).orderBy(userGroups.name);
+  }
+
+  async getUserGroup(id: string): Promise<UserGroup | undefined> {
+    const [group] = await db.select().from(userGroups).where(eq(userGroups.id, id));
+    return group || undefined;
+  }
+
+  async createUserGroup(group: InsertUserGroup): Promise<UserGroup> {
+    const [newGroup] = await db.insert(userGroups).values(group).returning();
+    return newGroup;
+  }
+
+  async updateUserGroup(id: string, updates: Partial<InsertUserGroup>): Promise<UserGroup | undefined> {
+    const [updatedGroup] = await db.update(userGroups)
+      .set(updates)
+      .where(eq(userGroups.id, id))
+      .returning();
+    return updatedGroup || undefined;
+  }
+
+  async deleteUserGroup(id: string): Promise<void> {
+    // First remove all members from the group
+    await db.delete(userGroupMembers).where(eq(userGroupMembers.groupId, id));
+    // Then delete the group
+    await db.delete(userGroups).where(eq(userGroups.id, id));
+  }
+
+  async getUsersByGroup(groupId: string): Promise<User[]> {
+    const result = await db
+      .select({ 
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        address: users.address,
+        role: users.role,
+        clientType: users.clientType,
+        companyName: users.companyName,
+        companyAddress: users.companyAddress,
+        companySiret: users.companySiret,
+        companyVat: users.companyVat,
+        companyApe: users.companyApe,
+        companyContact: users.companyContact,
+        isOnLeave: users.isOnLeave,
+        leaveStartDate: users.leaveStartDate,
+        leaveEndDate: users.leaveEndDate,
+        leaveReason: users.leaveReason,
+        createdAt: users.createdAt
+      })
+      .from(users)
+      .innerJoin(userGroupMembers, eq(users.id, userGroupMembers.userId))
+      .where(eq(userGroupMembers.groupId, groupId));
+    
+    return result;
+  }
+
+  async getUserGroupMemberships(userId: string): Promise<UserGroup[]> {
+    const result = await db
+      .select({
+        id: userGroups.id,
+        name: userGroups.name,
+        description: userGroups.description,
+        type: userGroups.type,
+        color: userGroups.color,
+        permissions: userGroups.permissions,
+        createdAt: userGroups.createdAt,
+        createdBy: userGroups.createdBy
+      })
+      .from(userGroups)
+      .innerJoin(userGroupMembers, eq(userGroups.id, userGroupMembers.groupId))
+      .where(eq(userGroupMembers.userId, userId));
+    
+    return result;
+  }
+
+  async addUserToGroup(userId: string, groupId: string, addedBy: string): Promise<UserGroupMember> {
+    const [member] = await db
+      .insert(userGroupMembers)
+      .values({ userId, groupId, addedBy })
+      .returning();
+    return member;
+  }
+
+  async removeUserFromGroup(userId: string, groupId: string): Promise<void> {
+    await db
+      .delete(userGroupMembers)
+      .where(and(eq(userGroupMembers.userId, userId), eq(userGroupMembers.groupId, groupId)));
+  }
+
+  // Leave Requests Implementation
+  async getLeaveRequests(employeeId?: string): Promise<LeaveRequest[]> {
+    if (employeeId) {
+      return await db.select().from(leaveRequests)
+        .where(eq(leaveRequests.employeeId, employeeId))
+        .orderBy(desc(leaveRequests.createdAt));
+    }
+    return await db.select().from(leaveRequests).orderBy(desc(leaveRequests.createdAt));
+  }
+
+  async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
+    const [request] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return request || undefined;
+  }
+
+  async createLeaveRequest(request: InsertLeaveRequest): Promise<LeaveRequest> {
+    const [newRequest] = await db.insert(leaveRequests).values(request).returning();
+    return newRequest;
+  }
+
+  async updateLeaveRequestStatus(id: string, status: string, approvedBy: string, notes?: string): Promise<LeaveRequest | undefined> {
+    const [updatedRequest] = await db.update(leaveRequests)
+      .set({
+        status,
+        approvedBy,
+        approvedAt: new Date(),
+        notes
+      })
+      .where(eq(leaveRequests.id, id))
+      .returning();
+    return updatedRequest || undefined;
+  }
+
+  async getUserLeaveStatus(userId: string): Promise<{isOnLeave: boolean, leaveEnd?: Date}> {
+    const [user] = await db.select({
+      isOnLeave: users.isOnLeave,
+      leaveEndDate: users.leaveEndDate
+    }).from(users).where(eq(users.id, userId));
+    
+    return {
+      isOnLeave: user?.isOnLeave || false,
+      leaveEnd: user?.leaveEndDate || undefined
+    };
+  }
+
+  async updateUserLeaveStatus(userId: string, isOnLeave: boolean, startDate?: Date, endDate?: Date, reason?: string): Promise<void> {
+    await db.update(users)
+      .set({
+        isOnLeave,
+        leaveStartDate: startDate || null,
+        leaveEndDate: endDate || null,
+        leaveReason: reason || null
+      })
+      .where(eq(users.id, userId));
   }
 }
 

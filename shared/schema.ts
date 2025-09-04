@@ -19,6 +19,46 @@ export const users = pgTable("users", {
   companyVat: text("company_vat"),
   companyApe: text("company_ape"),
   companyContact: text("company_contact"), // Nom du contact dans l'entreprise
+  // Gestion des congés pour les employés
+  isOnLeave: boolean("is_on_leave").default(false),
+  leaveStartDate: timestamp("leave_start_date"),
+  leaveEndDate: timestamp("leave_end_date"),
+  leaveReason: text("leave_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Groupes d'utilisateurs
+export const userGroups = pgTable("user_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  type: text("type").default("custom"), // predefined, custom, team
+  color: text("color").default("#6B7280"), // Couleur pour l'affichage
+  permissions: jsonb("permissions").default([]), // Permissions spécifiques au groupe
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+});
+
+// Association utilisateurs-groupes (many-to-many)
+export const userGroupMembers = pgTable("user_group_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  groupId: varchar("group_id").references(() => userGroups.id).notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  addedBy: varchar("added_by").references(() => users.id),
+});
+
+// Demandes de congés des employés
+export const leaveRequests = pgTable("leave_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => users.id).notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").default("pending"), // pending, approved, rejected
+  notes: text("notes"), // Notes de l'administrateur
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -286,6 +326,20 @@ export const updateClientProfileSchema = z.object({
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+// User Groups
+export const insertUserGroupSchema = createInsertSchema(userGroups);
+export type UserGroup = typeof userGroups.$inferSelect;
+export type InsertUserGroup = z.infer<typeof insertUserGroupSchema>;
+
+export const insertUserGroupMemberSchema = createInsertSchema(userGroupMembers);
+export type UserGroupMember = typeof userGroupMembers.$inferSelect;
+export type InsertUserGroupMember = z.infer<typeof insertUserGroupMemberSchema>;
+
+// Leave Requests
+export const insertLeaveRequestSchema = createInsertSchema(leaveRequests);
+export type LeaveRequest = typeof leaveRequests.$inferSelect;
+export type InsertLeaveRequest = z.infer<typeof insertLeaveRequestSchema>;
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type Booking = typeof bookings.$inferSelect;
