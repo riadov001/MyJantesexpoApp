@@ -21,6 +21,7 @@ import AdminUsers from "@/pages/admin-users";
 import AdminWorkProgress from "@/pages/admin-work-progress";
 import AdminProfile from "@/pages/admin-profile";
 import AdminCalendar from "@/pages/admin-calendar";
+import AdminPlanning from "@/pages/admin-planning";
 import BottomNavigation from "@/components/bottom-navigation";
 import DesktopNavigation from "@/components/desktop-navigation";
 import { useEffect, useState } from "react";
@@ -106,6 +107,7 @@ function Router() {
           <Route path="/admin/users" component={() => <AdminRoute component={AdminUsers} />} />
           <Route path="/admin/work-progress" component={() => <AdminRoute component={AdminWorkProgress} />} />
           <Route path="/admin/calendar" component={() => <AdminRoute component={AdminCalendar} />} />
+          <Route path="/admin/planning" component={() => <AdminRoute component={AdminPlanning} />} />
           <Route path="/admin-profile" component={() => <AdminOrEmployeeRoute component={AdminProfile} />} />
           
           <Route>

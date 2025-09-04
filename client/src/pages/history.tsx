@@ -230,7 +230,7 @@ export default function History() {
                 {quote.status === "pending" && quote.amount && (
                   <div className="flex space-x-2">
                     <Button
-                      className="ios-button flex-1 text-sm py-2"
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-1 text-sm py-2 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-95"
                       onClick={() => acceptQuoteMutation.mutate(quote.id)}
                       disabled={acceptQuoteMutation.isPending}
                       data-testid={`button-accept-quote-${quote.id}`}
@@ -239,7 +239,7 @@ export default function History() {
                     </Button>
                     <Button
                       variant="outline"
-                      className="px-4 py-2 text-sm"
+                      className="px-4 py-2 text-sm rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
                       data-testid={`button-quote-details-${quote.id}`}
                     >
                       Détails
@@ -249,7 +249,7 @@ export default function History() {
                 {quote.status !== "pending" && (
                   <Button
                     variant="outline"
-                    className="w-full px-4 py-2 text-sm"
+                    className="w-full px-4 py-2 text-sm rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
                     data-testid={`button-quote-details-${quote.id}`}
                   >
                     Voir les détails
@@ -294,7 +294,7 @@ export default function History() {
                 {invoice.status === "unpaid" && (
                   <div className="flex space-x-2">
                     <Button
-                      className="ios-button flex-1 text-sm py-2"
+                      className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white flex-1 text-sm py-2 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-95"
                       onClick={() => markAsPaidMutation.mutate(invoice.id)}
                       disabled={markAsPaidMutation.isPending}
                       data-testid={`button-mark-paid-${invoice.id}`}
@@ -303,7 +303,7 @@ export default function History() {
                     </Button>
                     <Button
                       variant="outline"
-                      className="px-4 py-2 text-sm"
+                      className="px-4 py-2 text-sm rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
                       data-testid={`button-invoice-pdf-${invoice.id}`}
                     >
                       PDF
@@ -313,7 +313,7 @@ export default function History() {
                 {invoice.status === "paid" && (
                   <Button
                     variant="outline"
-                    className="w-full px-4 py-2 text-sm"
+                    className="w-full px-4 py-2 text-sm rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
                     data-testid={`button-invoice-pdf-${invoice.id}`}
                   >
                     Télécharger PDF
