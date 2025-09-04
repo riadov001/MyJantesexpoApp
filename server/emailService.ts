@@ -106,7 +106,7 @@ export class EmailService {
         
         <p>Pour toute question concernant cette facture, n'hésitez pas à nous contacter :</p>
         <ul>
-            <li>📞 Téléphone : +33 1 23 45 67 89</li>
+            <li>📞 Téléphone : +33 3 21 40 80 53</li>
             <li>📧 Email : contact@myjantes.fr</li>
         </ul>
         
@@ -117,8 +117,8 @@ export class EmailService {
     
     <div class="footer">
         <p>MyJantes - Service professionnel de jantes et pneus<br>
-        123 Rue de l'Automobile, 75001 Paris<br>
-        contact@myjantes.fr | +33 1 23 45 67 89</p>
+        46 rue de la Convention, 62800 Liévin<br>
+        contact@myjantes.fr | +33 3 21 40 80 53</p>
     </div>
 </body>
 </html>
