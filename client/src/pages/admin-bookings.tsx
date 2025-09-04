@@ -215,16 +215,17 @@ export default function AdminBookings() {
             {/* Section assignation employé */}
             <div className="flex items-center space-x-2 mb-3">
               <Select 
-                value={booking.assignedEmployee || ""} 
+                value={booking.assignedEmployee || "unassigned"} 
                 onValueChange={(employeeId) => {
-                  assignEmployeeMutation.mutate({ bookingId: booking.id, employeeId });
+                  const actualEmployeeId = employeeId === "unassigned" ? "" : employeeId;
+                  assignEmployeeMutation.mutate({ bookingId: booking.id, employeeId: actualEmployeeId });
                 }}
               >
                 <SelectTrigger className="flex-1" data-testid={`select-employee-${booking.id}`}>
                   <SelectValue placeholder="Assigner un employé" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucun employé</SelectItem>
+                  <SelectItem value="unassigned">Aucun employé</SelectItem>
                   {employees?.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
                       {employee.name}
