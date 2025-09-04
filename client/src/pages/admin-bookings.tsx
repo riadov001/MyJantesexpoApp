@@ -9,10 +9,12 @@ import type { Booking } from "@shared/schema";
 
 export default function AdminBookings() {
   const [selectedBooking, setSelectedBooking] = useState<string>("");
+  const [contactComment, setContactComment] = useState<string>("");
+  const [showContactModal, setShowContactModal] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: bookings, isLoading } = useQuery({
+  const { data: bookings, isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/admin/bookings"],
   });
 
@@ -31,6 +33,26 @@ export default function AdminBookings() {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de mettre à jour le statut",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const contactClientMutation = useMutation({
+    mutationFn: ({ id, comment }: { id: string; comment: string }) => 
+      apiPost(`/api/admin/bookings/${id}/notify`, { comment }),
+    onSuccess: () => {
+      toast({
+        title: "Message envoyé",
+        description: "Le client a été notifié avec succès.",
+      });
+      setShowContactModal("");
+      setContactComment("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'envoyer le message",
         variant: "destructive",
       });
     },
@@ -173,6 +195,7 @@ export default function AdminBookings() {
               <Button 
                 variant="outline" 
                 size="sm"
+                onClick={() => setShowContactModal(booking.id)}
                 data-testid={`button-contact-${booking.id}`}
               >
                 Contacter
@@ -193,6 +216,41 @@ export default function AdminBookings() {
           </div>
         )}
       </div>
+
+      {/* Modal de contact client */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-ios w-11/12 max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Contacter le client</h3>
+            <textarea
+              value={contactComment}
+              onChange={(e) => setContactComment(e.target.value)}
+              placeholder="Tapez votre message au client..."
+              className="w-full p-3 border border-border rounded-ios resize-none"
+              rows={4}
+            />
+            <div className="flex space-x-3 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowContactModal("");
+                  setContactComment("");
+                }}
+                className="flex-1"
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => contactClientMutation.mutate({ id: showContactModal, comment: contactComment })}
+                disabled={!contactComment.trim() || contactClientMutation.isPending}
+                className="flex-1"
+              >
+                {contactClientMutation.isPending ? "Envoi..." : "Envoyer"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
