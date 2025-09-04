@@ -1,18 +1,11 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
+import ws from "ws";
 import * as schema from "@shared/schema";
 
 // Configure WebSocket for Neon database connections
-// Only set WebSocket constructor in environments where it's needed and available
-try {
-  // In production environments with native WebSocket support, don't override
-  if (process.env.NODE_ENV === 'development' || typeof globalThis.WebSocket === 'undefined') {
-    const ws = require("ws");
-    neonConfig.webSocketConstructor = ws;
-  }
-} catch (error) {
-  console.warn('WebSocket configuration failed, using default WebSocket implementation:', error);
-}
+// Use custom WebSocket library for all environments to ensure compatibility
+neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
