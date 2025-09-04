@@ -80,8 +80,8 @@ function Router() {
       {showDesktopNav && <DesktopNavigation />}
       
       {/* Container principal avec padding pour desktop nav */}
-      <div className={`bg-background min-h-screen relative ${showDesktopNav ? 'lg:pt-0' : ''}`}>
-        <div className="w-full px-4 max-w-sm mx-auto lg:max-w-7xl lg:px-8">
+      <div className={`bg-background min-h-screen relative ${showDesktopNav ? 'lg:pt-20' : ''}`}>
+        <div className="w-full px-4 max-w-sm mx-auto lg:max-w-none lg:px-0">
 
         <Switch>
           <Route path="/login" component={Login} />
