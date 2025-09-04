@@ -177,10 +177,11 @@ ${300 + content.length}
 
         // Articles/services avec détails
         const items = invoice.items || [{
-            description: invoice.description,
+            description: invoice.description || 'Service MyJantes',
             quantity: 1,
             unitPrice: subtotal,
-            total: subtotal
+            total: subtotal,
+            date: new Date(invoice.createdAt).toLocaleDateString("fr-FR")
         }];
 
         const documentTitle = type === 'quote' ? 'DEVIS' : 'FACTURE';
@@ -194,27 +195,25 @@ ${300 + content.length}
     <title>${documentTitle} ${documentNumber}</title>
     <style>
         @page {
-            margin: 20mm;
+            margin: 15mm;
             size: A4;
         }
         
         body {
             font-family: Arial, sans-serif;
-            font-size: 10px;
+            font-size: 9px;
             margin: 0;
             padding: 0;
             color: #000;
-            line-height: 1.2;
+            line-height: 1.3;
         }
         
-        .header {
-            width: 100%;
+        .document-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 30px;
-            border-bottom: 1px solid #000;
-            padding-bottom: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
         }
         
         .logo-section {
@@ -224,8 +223,8 @@ ${300 + content.length}
         }
         
         .logo {
-            width: 60px;
-            height: 60px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             overflow: hidden;
             display: flex;
@@ -238,148 +237,129 @@ ${300 + content.length}
             width: 100%;
             height: 100%;
             object-fit: contain;
-            border-radius: 50%;
         }
         
-        .company-header {
+        .company-name {
             font-weight: bold;
-            font-size: 16px;
-        }
-        
-        .document-info {
-            text-align: right;
+            font-size: 14px;
         }
         
         .document-title {
-            font-size: 18px;
+            font-size: 14px;
             font-weight: bold;
-            margin-bottom: 8px;
+            text-align: right;
         }
         
-        .company-details {
-            width: 100%;
+        .info-section {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 40px;
+            margin-bottom: 25px;
+            gap: 20px;
         }
         
         .company-info, .client-info {
-            width: 45%;
+            width: 48%;
         }
         
         .company-info h3, .client-info h3 {
-            margin: 0 0 10px 0;
-            font-size: 12px;
+            margin: 0 0 8px 0;
+            font-size: 10px;
             font-weight: bold;
+            text-decoration: underline;
+        }
+        
+        .info-line {
+            margin-bottom: 2px;
+            font-size: 9px;
         }
         
         .services-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 30px 0;
-            border: 2px solid #000;
-            font-size: 9px;
+            margin: 20px 0;
+            border: 1px solid #000;
+        }
+        
+        .services-table th, .services-table td {
+            border: 1px solid #000;
+            padding: 6px 4px;
+            text-align: center;
+            font-size: 8px;
         }
         
         .services-table th {
-            background-color: #f5f5f5;
-            border: 1px solid #000;
-            padding: 10px 8px;
-            text-align: center;
+            background-color: #f0f0f0;
             font-weight: bold;
-            font-size: 10px;
-            color: #000;
-        }
-        
-        .services-table td {
-            border: 1px solid #000;
-            padding: 10px 8px;
-            text-align: center;
-            font-size: 9px;
-            vertical-align: middle;
         }
         
         .description-col {
-            width: 40%;
+            width: 35%;
             text-align: left !important;
-            padding-left: 12px !important;
         }
         
-        .date-col {
-            width: 15%;
-        }
+        .date-col { width: 12%; }
+        .qty-col { width: 8%; }
+        .unit-col { width: 8%; }
+        .price-col { width: 12%; text-align: right !important; }
+        .vat-col { width: 8%; }
+        .total-col { width: 12%; text-align: right !important; font-weight: bold; }
         
-        .qty-col {
-            width: 10%;
-        }
-        
-        .unit-col {
-            width: 10%;
-        }
-        
-        .price-col {
-            width: 12%;
-            text-align: right !important;
-        }
-        
-        .vat-col {
-            width: 8%;
-        }
-        
-        .amount-col {
-            width: 15%;
-            text-align: right !important;
-            font-weight: bold;
-        }
-        
-        .totals {
-            width: 100%;
-            margin-bottom: 30px;
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin: 15px 0;
         }
         
         .totals-table {
-            margin-left: auto;
             width: 200px;
+            border-collapse: collapse;
         }
         
         .totals-table td {
-            padding: 5px;
-            border: none;
+            padding: 3px 8px;
+            font-size: 9px;
             text-align: right;
         }
         
-        .totals-table .total-row {
+        .totals-table .label {
+            text-align: left;
             font-weight: bold;
-            border-top: 1px solid #000;
-            font-size: 12px;
         }
         
-        .payment-info {
-            width: 100%;
+        .totals-table .total-final {
+            border-top: 2px solid #000;
+            font-weight: bold;
+            font-size: 10px;
+        }
+        
+        .bottom-section {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 40px;
+            margin-top: 30px;
+            gap: 20px;
         }
         
-        .payment-methods, .payment-terms {
-            width: 45%;
+        .payment-terms, .conditions {
+            width: 48%;
+            font-size: 8px;
         }
         
-        .payment-methods h4, .payment-terms h4 {
-            margin: 0 0 8px 0;
-            font-size: 10px;
+        .payment-terms h4, .conditions h4 {
+            margin: 0 0 5px 0;
+            font-size: 9px;
             font-weight: bold;
+            text-decoration: underline;
         }
         
         .footer {
             position: fixed;
-            bottom: 20mm;
-            left: 0;
-            right: 0;
+            bottom: 10mm;
+            left: 15mm;
+            right: 15mm;
             text-align: center;
             font-size: 8px;
             border-top: 1px solid #000;
-            padding-top: 10px;
+            padding-top: 8px;
         }
         
         .photos-section {
@@ -421,46 +401,38 @@ ${300 + content.length}
     </style>
 </head>
 <body>
-    <div class="header">
+    <div class="document-header">
         <div class="logo-section">
             <div class="logo">
                 ${logoBase64 ? `<img src="${logoBase64}" alt="MyJantes Logo" />` : '🔧'}
             </div>
-            <div>
-                <div class="company-header">MY JANTES</div>
-                <div style="font-size: 8px;">Spécialiste Jantes</div>
-            </div>
+            <div class="company-name">MY JANTES</div>
         </div>
-        
-        <div class="document-info">
-            <div class="document-title">${documentTitle} - ${documentNumber}</div>
-            <div>Date de facturation: ${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</div>
-            <div>Échéance: ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}</div>
-            <div>Type d'opération: Opération mixte</div>
-        </div>
+        <div class="document-title">${documentTitle} - ${documentNumber}</div>
     </div>
 
-    <div class="company-details">
+    <div class="info-section">
         <div class="company-info">
             <h3>MY JANTES</h3>
-            <div>46 rue de la convention</div>
-            <div>62800 Lievin</div>
-            <div>0321408053</div>
-            <div>contact@myjantes.com</div>
-            <div>www.myjantes.fr</div>
+            <div class="info-line">46 rue de la convention</div>
+            <div class="info-line">62800 Lievin</div>
+            <div class="info-line">0321408053</div>
+            <div class="info-line">contact@myjantes.com</div>
+            <div class="info-line">www.myjantes.fr</div>
         </div>
         
         <div class="client-info">
-            <div><strong>${(invoice.user?.name || "CLIENT").toUpperCase()}</strong></div>
+            <h3>ADRESSE</h3>
+            <div class="info-line"><strong>${(invoice.user?.name || "CLIENT").toUpperCase()}</strong></div>
             ${invoice.user?.clientType === "professionnel" && invoice.user?.companyName ? `
-                <div><strong>${invoice.user.companyName}</strong></div>
-                ${invoice.user.companyAddress ? `<div>${invoice.user.companyAddress}</div>` : ''}
-                ${invoice.user.companySiret ? `<div>SIRET: ${invoice.user.companySiret}</div>` : ''}
-                ${invoice.user.companyVat ? `<div>TVA: ${invoice.user.companyVat}</div>` : ''}
+                <div class="info-line"><strong>${invoice.user.companyName}</strong></div>
+                ${invoice.user.companyAddress ? `<div class="info-line">${invoice.user.companyAddress}</div>` : ''}
+                ${invoice.user.companySiret ? `<div class="info-line">SIRET: ${invoice.user.companySiret}</div>` : ''}
+                ${invoice.user.companyVat ? `<div class="info-line">TVA: ${invoice.user.companyVat}</div>` : ''}
             ` : ''}
-            ${invoice.user?.email ? `<div>${invoice.user.email}</div>` : ''}
-            ${invoice.user?.phone ? `<div>${invoice.user.phone}</div>` : ''}
-            ${invoice.user?.address && invoice.user?.clientType !== "professionnel" ? `<div>${invoice.user.address}</div>` : ''}
+            ${invoice.user?.email ? `<div class="info-line">${invoice.user.email}</div>` : ''}
+            ${invoice.user?.phone ? `<div class="info-line">${invoice.user.phone}</div>` : ''}
+            ${invoice.user?.address && invoice.user?.clientType !== "professionnel" ? `<div class="info-line">${invoice.user.address}</div>` : ''}
         </div>
     </div>
 
@@ -476,11 +448,11 @@ ${300 + content.length}
             <tr>
                 <th class="description-col">DESCRIPTION</th>
                 <th class="date-col">DATE</th>
-                <th class="qty-col">QTÉ</th>
-                <th class="unit-col">UNITÉ</th>
+                <th class="qty-col">QTE</th>
+                <th class="unit-col">UNITE</th>
                 <th class="price-col">PRIX HT</th>
                 <th class="vat-col">TVA</th>
-                <th class="amount-col">TOTAL TTC</th>
+                <th class="total-col">TOTAL TTC</th>
             </tr>
         </thead>
         <tbody>
@@ -488,44 +460,45 @@ ${300 + content.length}
                 <tr>
                     <td class="description-col">${item.description || invoice.description}</td>
                     <td class="date-col">${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</td>
-                    <td class="qty-col">${(item.quantity || 1).toFixed(2)}</td>
-                    <td class="unit-col">pce</td>
+                    <td class="qty-col">${item.quantity || 1}</td>
+                    <td class="unit-col">u</td>
                     <td class="price-col">${(item.unitPrice || subtotal).toFixed(2)}€</td>
-                    <td class="vat-col">${vatRate.toFixed(2)} %</td>
-                    <td class="amount-col">${(item.total || subtotal).toFixed(2)}€</td>
+                    <td class="vat-col">${vatRate}%</td>
+                    <td class="total-col">${(item.total || total).toFixed(2)}€</td>
                 </tr>
             `).join('')}
         </tbody>
     </table>
 
-    <div class="totals">
+    <div class="totals-section">
         <table class="totals-table">
             <tr>
-                <td><strong>Total HT</strong></td>
-                <td><strong>${subtotal.toFixed(2)}€</strong></td>
+                <td class="label">HT</td>
+                <td>${subtotal.toFixed(2)}€</td>
             </tr>
             <tr>
-                <td><strong>TVA ${vatRate.toFixed(2)} %</strong></td>
-                <td><strong>${vatAmount.toFixed(2)}€</strong></td>
+                <td class="label">TVA ${vatRate}%</td>
+                <td>${vatAmount.toFixed(2)}€</td>
             </tr>
-            <tr class="total-row">
-                <td><strong>Total TTC</strong></td>
-                <td><strong>${total.toFixed(2)}€</strong></td>
+            <tr class="total-final">
+                <td class="label">Total TTC</td>
+                <td>${total.toFixed(2)}€</td>
             </tr>
         </table>
     </div>
 
-    <div class="payment-info">
-        <div class="payment-methods">
-            <h4>Moyens de paiement:</h4>
+    <div class="bottom-section">
+        <div class="payment-terms">
+            <h4>Moyens de paiement</h4>
             <div>Banque: SOCIETE GENERALE</div>
             <div>SWIFT/BIC: SOGEFRPP</div>
             <div>IBAN: FR76 3000 3029 5800 0201 6936 525</div>
         </div>
         
-        <div class="payment-terms">
-            <h4>Conditions de paiement:</h4>
-            <div>30 jours</div>
+        <div class="conditions">
+            <h4>Conditions de paiement</h4>
+            <div>30 jours fin de mois</div>
+            <div>Escompte 2% à 8 jours</div>
         </div>
     </div>
 
