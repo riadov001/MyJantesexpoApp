@@ -351,8 +351,24 @@ export const insertUserGroupMemberSchema = createInsertSchema(userGroupMembers);
 export type UserGroupMember = typeof userGroupMembers.$inferSelect;
 export type InsertUserGroupMember = z.infer<typeof insertUserGroupMemberSchema>;
 
-// Leave Requests
-export const insertLeaveRequestSchema = createInsertSchema(leaveRequests);
+// Leave Requests - schéma simplifié pour éviter la transformation côté serveur
+export const insertLeaveRequestSchema = createInsertSchema(leaveRequests).omit({
+  id: true,
+  createdAt: true,
+  approvedBy: true,
+  approvedAt: true,
+  employeeId: true, // Sera ajouté côté serveur
+}).extend({
+  // Recevoir des strings ISO et les transformer en Date
+  startDate: z.string().min(1, "Date de début requise").transform(str => new Date(str)),
+  endDate: z.string().min(1, "Date de fin requise").transform(str => new Date(str)),
+}).refine((data) => {
+  return data.startDate < data.endDate;
+}, {
+  message: "La date de fin doit être après la date de début",
+  path: ["endDate"],
+});
+
 export type LeaveRequest = typeof leaveRequests.$inferSelect;
 export type InsertLeaveRequest = z.infer<typeof insertLeaveRequestSchema>;
 export type Service = typeof services.$inferSelect;
