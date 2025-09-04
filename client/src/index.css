@@ -208,9 +208,47 @@
 @media (min-width: 1024px) {
   .desktop-nav {
     display: block !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: hsl(0, 0%, 10.2%);
+    border-bottom: 1px solid hsl(0, 0%, 20%);
   }
+  
   .mobile-nav-hidden {
     display: none !important;
+  }
+  
+  /* Desktop layout */
+  body {
+    padding-top: 80px;
+  }
+  
+  .desktop-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  
+  .desktop-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  
+  .desktop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+  }
+  
+  .desktop-main-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin-top: 2rem;
   }
 }
 
@@ -243,6 +281,15 @@
   background-color: hsl(0, 0%, 10.2%) !important;
   color: hsl(0, 0%, 100%) !important;
   border-color: hsl(0, 0%, 20%) !important;
+  transition: all 0.2s ease;
+}
+
+@media (min-width: 1024px) {
+  .ios-card:hover {
+    border-color: hsl(0, 73%, 51%);
+    box-shadow: 0 8px 25px -5px rgba(229, 62, 62, 0.1);
+    transform: translateY(-2px);
+  }
 }
 
 .form-input {
