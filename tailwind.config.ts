@@ -2,8 +2,24 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
+  content: [
+    './index.html',
+    './client/index.html', 
+    './client/src/**/*.{js,ts,jsx,tsx}'
+  ],
   theme: {
+    screens: {
+      xs: '420px',   // small phones
+      sm: '640px',   // large phones
+      md: '768px',   // tablets
+      lg: '1024px',  // laptops
+      xl: '1280px',  // desktops
+      '2xl': '1440px', // large screens
+    },
+    container: {
+      center: true,
+      padding: '1rem',
+    },
     extend: {
       borderRadius: {
         lg: "var(--radius)",
@@ -75,6 +91,9 @@ export default {
         'safe-top': '44px',
         'safe-bottom': '34px',
         'tab-height': '83px',
+        '18': '4.5rem',
+        '88': '22rem',
+        '100': '25rem',
       },
       keyframes: {
         "accordion-down": {
