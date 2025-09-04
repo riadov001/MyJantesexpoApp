@@ -58,7 +58,7 @@ export default function Home() {
     <div className="pb-24 lg:pb-8">
       {/* Header with Logo - Responsive */}
       <div className="px-4 xs:px-6 py-4 md:py-6 lg:py-8 border-b border-border">
-        <div className="max-w-7xl mx-auto">
+        <div className="container mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <h2 className="text-lg xs:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold" data-testid="text-welcome">

@@ -205,6 +205,13 @@
   }
 }
 
+/* Remove max-width constraints for full responsiveness */
+@media (min-width: 640px) {
+  .container {
+    max-width: none;
+  }
+}
+
 @media (min-width: 1024px) {
   .desktop-nav {
     display: block !important;
