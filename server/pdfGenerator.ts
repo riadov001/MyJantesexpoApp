@@ -31,6 +31,20 @@ interface InvoiceData {
 }
 
 export class PDFGenerator {
+    private getLogoBase64(): string {
+        try {
+            const logoPath = path.join(process.cwd(), 'client', 'src', 'assets', 'logo-myjantes.png');
+            if (fs.existsSync(logoPath)) {
+                const logoBuffer = fs.readFileSync(logoPath);
+                return `data:image/png;base64,${logoBuffer.toString('base64')}`;
+            }
+        } catch (error) {
+            console.warn('Could not load logo:', error);
+        }
+        // Fallback to a simple placeholder if logo is not found
+        return '';
+    }
+
     async generateInvoicePDF(invoice: any, type: 'invoice' | 'quote' = 'invoice'): Promise<Buffer> {
         try {
             const html = this.generateMyJantesHTML(invoice, type);
@@ -153,6 +167,8 @@ ${300 + content.length}
     }
 
     private generateMyJantesHTML(invoice: any, type: 'invoice' | 'quote' = 'invoice'): string {
+        const logoBase64 = this.getLogoBase64();
+        
         // Calculs financiers
         const subtotal = invoice.subtotal ? parseFloat(invoice.subtotal) : (parseFloat(invoice.amount) / 1.2);
         const vatRate = invoice.vatRate ? parseFloat(invoice.vatRate) : 20;
@@ -210,13 +226,19 @@ ${300 + content.length}
         .logo {
             width: 60px;
             height: 60px;
-            border: 1px solid #000;
             border-radius: 50%;
-            background-color: #f0f0f0;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 8px;
+            background-color: #f0f0f0;
+        }
+        
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 50%;
         }
         
         .company-header {
@@ -401,7 +423,9 @@ ${300 + content.length}
 <body>
     <div class="header">
         <div class="logo-section">
-            <div class="logo">🔧</div>
+            <div class="logo">
+                ${logoBase64 ? `<img src="${logoBase64}" alt="MyJantes Logo" />` : '🔧'}
+            </div>
             <div>
                 <div class="company-header">MY JANTES</div>
                 <div style="font-size: 8px;">Spécialiste Jantes</div>
