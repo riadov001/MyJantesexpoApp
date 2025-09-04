@@ -231,20 +231,31 @@ export default function AdminQuotes() {
                 </div>
                 
                 {quote.amount && (
-                  <div className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => downloadFile(`/api/quotes/${quote.id}/pdf`, `devis-${quote.id}.pdf`)}
-                      data-testid={`button-download-pdf-${quote.id}`}
-                    >
-                      📄 PDF Devis
-                    </Button>
+                  <div className="space-y-2">
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => window.open(`/api/quotes/${quote.id}/preview`, '_blank')}
+                        data-testid={`button-preview-${quote.id}`}
+                      >
+                        👁️ Aperçu
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => downloadFile(`/api/quotes/${quote.id}/pdf`, `devis-${quote.id}.pdf`)}
+                        data-testid={`button-download-pdf-${quote.id}`}
+                      >
+                        📄 PDF Devis
+                      </Button>
+                    </div>
                     {quote.status === "approved" && (
                       <Button 
                         size="sm"
-                        className="flex-1"
+                        className="w-full"
                         onClick={() => convertToInvoiceMutation.mutate(quote.id)}
                         disabled={convertToInvoiceMutation.isPending}
                         data-testid={`button-convert-invoice-${quote.id}`}

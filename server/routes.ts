@@ -986,6 +986,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route pour aperçu HTML d'une facture
+  app.get("/api/invoices/:id/preview", authenticateToken, async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      const invoiceWithUser = { ...invoice, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const htmlContent = pdfGenerator.getInvoicePreviewHTML(invoiceWithUser);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(htmlContent);
+    } catch (error) {
+      console.error("Error generating invoice preview:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'aperçu de la facture" });
+    }
+  });
+
   // PDF generation routes - avec authentification
   app.get("/api/invoices/:id/pdf", authenticateToken, async (req: any, res) => {
     try {
@@ -1007,6 +1029,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ message: "Erreur lors de la génération du PDF" });
+    }
+  });
+
+  // Route pour aperçu HTML d'un devis
+  app.get("/api/quotes/:id/preview", authenticateToken, async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      const user = await storage.getUser(quote.userId);
+      const quoteWithUser = { ...quote, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const htmlContent = pdfGenerator.getQuotePreviewHTML(quoteWithUser);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(htmlContent);
+    } catch (error) {
+      console.error("Error generating quote preview:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'aperçu du devis" });
     }
   });
 

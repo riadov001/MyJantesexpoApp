@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera, Smartphone } from "lucide-react";
+import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera, Smartphone, Eye } from "lucide-react";
 import type { Invoice } from "@shared/schema";
 import PhotoPicker from "@/components/photo-picker";
 
@@ -519,6 +519,23 @@ export default function AdminInvoices() {
               
               {/* Ligne 2: Actions principales */}
               <div className="flex justify-center gap-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => window.open(`/api/invoices/${invoice.id}/preview`, '_blank')}
+                      data-testid={`button-preview-${invoice.id}`}
+                      className="h-12 w-12"
+                    >
+                      <Eye className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Aperçu facture</p>
+                  </TooltipContent>
+                </Tooltip>
+                
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
