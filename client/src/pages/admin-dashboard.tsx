@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { BarChart3, Users, FileText, DollarSign, Clock, AlertCircle, Calendar } from "lucide-react";
+import { BarChart3, Users, FileText, DollarSign, Clock, AlertCircle, Calendar, Plane } from "lucide-react";
 
 interface DashboardStats {
   totalBookings: number;
