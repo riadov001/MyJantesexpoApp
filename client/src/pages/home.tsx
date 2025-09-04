@@ -82,7 +82,7 @@ export default function Home() {
       <div className="px-6 py-6 lg:py-8">
         <div className="max-w-7xl mx-auto">
           <h3 className="text-lg lg:text-xl font-semibold mb-4 lg:mb-6">Actions rapides</h3>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
             <button
               className="ios-card text-center p-6 lg:p-8 hover:scale-105 transition-transform"
               onClick={() => setLocation("/booking")}
