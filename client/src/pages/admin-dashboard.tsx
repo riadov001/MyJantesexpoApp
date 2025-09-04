@@ -188,6 +188,17 @@ export default function AdminDashboard() {
                 <span>Gérer les utilisateurs</span>
               </div>
             </Link>
+
+            <Link
+              href="/admin/leaves"
+              className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
+              data-testid="button-manage-leaves"
+            >
+              <div className="flex items-center space-x-3">
+                <Plane className="text-primary" size={20} />
+                <span>Gestion des congés</span>
+              </div>
+            </Link>
           </div>
         </div>
 

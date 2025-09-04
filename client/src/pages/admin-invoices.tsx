@@ -524,7 +524,7 @@ export default function AdminInvoices() {
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => window.open(`/api/invoices/${invoice.id}/preview`, '_blank')}
+                      onClick={() => window.open(`/api/admin/invoices/${invoice.id}/preview`, '_blank')}
                       data-testid={`button-preview-${invoice.id}`}
                       className="h-12 w-12"
                     >
@@ -541,7 +541,7 @@ export default function AdminInvoices() {
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')}
+                      onClick={() => window.open(`/api/admin/invoices/${invoice.id}/pdf`, '_blank')}
                       data-testid={`button-pdf-${invoice.id}`}
                       className="h-12 w-12"
                     >
