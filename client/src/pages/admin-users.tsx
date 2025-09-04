@@ -90,7 +90,7 @@ export default function AdminUsers() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
   });
 

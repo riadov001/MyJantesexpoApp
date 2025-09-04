@@ -18,6 +18,7 @@ import AdminQuotes from "@/pages/admin-quotes";
 import AdminCreateQuote from "@/pages/admin-create-quote";
 import AdminInvoices from "@/pages/admin-invoices";
 import AdminUsers from "@/pages/admin-users";
+import AdminLeaves from "@/pages/admin-leaves";
 import AdminWorkProgress from "@/pages/admin-work-progress";
 import AdminProfile from "@/pages/admin-profile";
 import AdminCalendar from "@/pages/admin-calendar";
@@ -105,6 +106,7 @@ function Router() {
           <Route path="/admin/quotes/create" component={() => <AdminRoute component={AdminCreateQuote} />} />
           <Route path="/admin/invoices" component={() => <AdminRoute component={AdminInvoices} />} />
           <Route path="/admin/users" component={() => <AdminRoute component={AdminUsers} />} />
+          <Route path="/admin/leaves" component={() => <AdminRoute component={AdminLeaves} />} />
           <Route path="/admin/work-progress" component={() => <AdminRoute component={AdminWorkProgress} />} />
           <Route path="/admin/calendar" component={() => <AdminRoute component={AdminCalendar} />} />
           <Route path="/admin/planning" component={() => <AdminRoute component={AdminPlanning} />} />

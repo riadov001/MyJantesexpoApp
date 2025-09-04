@@ -237,7 +237,7 @@ export default function AdminQuotes() {
                         variant="outline" 
                         size="sm"
                         className="flex-1"
-                        onClick={() => window.open(`/api/quotes/${quote.id}/preview`, '_blank')}
+                        onClick={() => window.open(`/api/admin/quotes/${quote.id}/preview`, '_blank')}
                         data-testid={`button-preview-${quote.id}`}
                       >
                         👁️ Aperçu
@@ -246,7 +246,7 @@ export default function AdminQuotes() {
                         variant="outline" 
                         size="sm"
                         className="flex-1"
-                        onClick={() => downloadFile(`/api/quotes/${quote.id}/pdf`, `devis-${quote.id}.pdf`)}
+                        onClick={() => downloadFile(`/api/admin/quotes/${quote.id}/pdf`, `devis-${quote.id}.pdf`)}
                         data-testid={`button-download-pdf-${quote.id}`}
                       >
                         📄 PDF Devis

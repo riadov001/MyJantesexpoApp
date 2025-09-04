@@ -800,6 +800,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get all leave requests
+  app.get("/api/admin/leave-requests", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const allLeaveRequests = await storage.getLeaveRequests(); // Sans employeeId = toutes les demandes
+      res.json(allLeaveRequests);
+    } catch (error) {
+      console.error("Get all leave requests error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des demandes de congés" });
+    }
+  });
+
   // Dashboard stats
   app.get("/api/admin/dashboard", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
@@ -1075,6 +1086,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating quote PDF:", error);
       res.status(500).json({ message: "Erreur lors de la génération du PDF du devis" });
+    }
+  });
+
+  // ===== ENDPOINTS ADMIN SANS AUTHENTIFICATION JWT =====
+  
+  // Admin: Route pour aperçu HTML d'une facture (sans auth JWT)
+  app.get("/api/admin/invoices/:id/preview", async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      const invoiceWithUser = { ...invoice, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const htmlContent = pdfGenerator.getInvoicePreviewHTML(invoiceWithUser);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(htmlContent);
+    } catch (error) {
+      console.error("Error generating invoice preview:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'aperçu de la facture" });
+    }
+  });
+
+  // Admin: Route pour génération PDF d'une facture (sans auth JWT)
+  app.get("/api/admin/invoices/:id/pdf", async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      const invoiceWithUser = { ...invoice, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateInvoicePDF(invoiceWithUser);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="facture-${invoice.id.substring(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.end(pdfBuffer, 'binary');
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Erreur lors de la génération du PDF" });
+    }
+  });
+
+  // Admin: Route pour aperçu HTML d'un devis (sans auth JWT)
+  app.get("/api/admin/quotes/:id/preview", async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      const user = await storage.getUser(quote.userId);
+      const quoteWithUser = { ...quote, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const htmlContent = pdfGenerator.getQuotePreviewHTML(quoteWithUser);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(htmlContent);
+    } catch (error) {
+      console.error("Error generating quote preview:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'aperçu du devis" });
+    }
+  });
+
+  // Admin: Route pour génération PDF de devis (sans auth JWT)
+  app.get("/api/admin/quotes/:id/pdf", async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      const user = await storage.getUser(quote.userId);
+      const quoteWithUser = { ...quote, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateQuotePDF(quoteWithUser);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="devis-${quote.id.substring(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.end(pdfBuffer, 'binary');
+    } catch (error) {
+      console.error("Error generating quote PDF:", error);
+      res.status(500).json({ message: "Erreur lors de la génération du PDF" });
     }
   });
 
