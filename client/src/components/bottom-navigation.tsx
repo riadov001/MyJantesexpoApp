@@ -34,15 +34,15 @@ export default function BottomNavigation() {
   const { data: unreadCount } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
     refetchInterval: 30000, // Refresh every 30 seconds
-  });
+  }) as { data?: { count: number } };
 
   return (
-    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm bg-card border-t border-border ios-blur mobile-nav-hidden">
+    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm xs:max-w-md sm:max-w-lg lg:hidden bg-card border-t border-border ios-blur">
       <div className="flex items-center justify-around py-2 px-6">
         {navItems.map((item) => {
           const isActive = location === item.path || (item.path === "/admin" && location.startsWith("/admin"));
           const isNotificationTab = item.path === "/notifications";
-          const hasUnreadNotifications = unreadCount?.count > 0;
+          const hasUnreadNotifications = (unreadCount as any)?.count > 0;
           const isAdminTab = 'isAdmin' in item && item.isAdmin;
           
           return (
@@ -59,7 +59,7 @@ export default function BottomNavigation() {
                 {isNotificationTab && hasUnreadNotifications && (
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
                     <span className="text-white text-xs font-bold">
-                      {unreadCount.count > 9 ? "9+" : unreadCount.count}
+                      {(unreadCount as any)?.count > 9 ? "9+" : (unreadCount as any)?.count}
                     </span>
                   </div>
                 )}

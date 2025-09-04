@@ -56,78 +56,78 @@ export default function Home() {
 
   return (
     <div className="pb-24 lg:pb-8">
-      {/* Header with Logo - Desktop optimized */}
-      <div className="px-6 py-4 lg:py-8 border-b border-border">
+      {/* Header with Logo - Responsive */}
+      <div className="px-4 xs:px-6 py-4 md:py-6 lg:py-8 border-b border-border">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl lg:text-3xl font-bold" data-testid="text-welcome">
+            <div className="flex-1">
+              <h2 className="text-lg xs:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold" data-testid="text-welcome">
                 Bonjour, {user?.name || "Utilisateur"}
               </h2>
-              <p className="text-sm lg:text-base text-muted-foreground">
+              <p className="text-xs xs:text-sm md:text-base lg:text-lg text-muted-foreground mt-1">
                 Que souhaitez-vous faire aujourd'hui ?
               </p>
             </div>
             <img 
               src={logoUrl} 
               alt="MY JANTES" 
-              className="h-12 lg:h-16 w-auto bg-white rounded-lg p-2 shadow-sm"
+              className="h-10 xs:h-12 sm:h-14 md:h-16 lg:h-18 xl:h-20 w-auto bg-white rounded-lg p-1.5 sm:p-2 shadow-sm flex-shrink-0 ml-4"
               data-testid="logo-myjantes"
             />
           </div>
         </div>
       </div>
 
-      {/* Quick Actions - Desktop optimized */}
-      <div className="px-6 py-6 lg:py-8">
+      {/* Quick Actions - Responsive */}
+      <div className="px-4 xs:px-6 py-6 md:py-8 lg:py-10">
         <div className="max-w-7xl mx-auto">
-          <h3 className="text-lg lg:text-xl font-semibold mb-4 lg:mb-6">Actions rapides</h3>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
+          <h3 className="text-base xs:text-lg md:text-xl lg:text-2xl font-semibold mb-4 md:mb-6 lg:mb-8">Actions rapides</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 xs:gap-4 md:gap-6 lg:gap-8">
             <button
-              className="ios-card text-center p-6 lg:p-8 hover:scale-105 transition-transform"
+              className="ios-card text-center p-4 xs:p-5 sm:p-6 md:p-7 lg:p-8 xl:p-10 hover:scale-105 transition-transform duration-200"
               onClick={() => setLocation("/booking")}
               data-testid="button-booking"
             >
-              <Calendar className="text-primary text-2xl lg:text-4xl mb-3 mx-auto" size={32} />
-              <p className="font-medium lg:text-lg">Réserver</p>
-              <p className="text-xs lg:text-sm text-muted-foreground mt-1">Nouvelle réservation</p>
+              <Calendar className="text-primary mb-2 xs:mb-3 mx-auto" size={24} />
+              <p className="font-medium text-sm xs:text-base md:text-lg lg:text-xl">Réserver</p>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 leading-tight">Nouvelle réservation</p>
             </button>
             <button
-              className="ios-card text-center p-6 lg:p-8 hover:scale-105 transition-transform"
+              className="ios-card text-center p-4 xs:p-5 sm:p-6 md:p-7 lg:p-8 xl:p-10 hover:scale-105 transition-transform duration-200"
               onClick={() => setLocation("/quote")}
               data-testid="button-quote"
             >
-              <FileText className="text-primary text-2xl lg:text-4xl mb-3 mx-auto" size={32} />
-              <p className="font-medium lg:text-lg">Devis</p>
-              <p className="text-xs lg:text-sm text-muted-foreground mt-1">Demander un devis</p>
+              <FileText className="text-primary mb-2 xs:mb-3 mx-auto" size={24} />
+              <p className="font-medium text-sm xs:text-base md:text-lg lg:text-xl">Devis</p>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 leading-tight">Demander un devis</p>
             </button>
             <button
-              className="ios-card text-center p-6 lg:p-8 hover:scale-105 transition-transform"
+              className="ios-card text-center p-4 xs:p-5 sm:p-6 md:p-7 lg:p-8 xl:p-10 hover:scale-105 transition-transform duration-200"
               onClick={() => setLocation("/history")}
               data-testid="button-history"
             >
-              <FileText className="text-primary text-2xl lg:text-4xl mb-3 mx-auto" size={32} />
-              <p className="font-medium lg:text-lg">Historique</p>
-              <p className="text-xs lg:text-sm text-muted-foreground mt-1">Mes prestations</p>
+              <FileText className="text-primary mb-2 xs:mb-3 mx-auto" size={24} />
+              <p className="font-medium text-sm xs:text-base md:text-lg lg:text-xl">Historique</p>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 leading-tight">Mes prestations</p>
             </button>
             <button
-              className="ios-card text-center p-6 lg:p-8 hover:scale-105 transition-transform"
+              className="ios-card text-center p-4 xs:p-5 sm:p-6 md:p-7 lg:p-8 xl:p-10 hover:scale-105 transition-transform duration-200"
               onClick={() => setLocation("/profile")}
               data-testid="button-profile"
             >
-              <User className="text-primary text-2xl lg:text-4xl mb-3 mx-auto" size={32} />
-              <p className="font-medium lg:text-lg">Profil</p>
-              <p className="text-xs lg:text-sm text-muted-foreground mt-1">Mon compte</p>
+              <User className="text-primary mb-2 xs:mb-3 mx-auto" size={24} />
+              <p className="font-medium text-sm xs:text-base md:text-lg lg:text-xl">Profil</p>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 leading-tight">Mon compte</p>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity - Desktop optimized */}
-      <div className="px-6 pb-24 lg:pb-8">
+      {/* Recent Activity - Responsive */}
+      <div className="px-4 xs:px-6 pb-24 lg:pb-8">
         <div className="max-w-7xl mx-auto">
-          <h3 className="text-lg lg:text-xl font-semibold mb-4 lg:mb-6">Activité récente</h3>
-          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
+          <h3 className="text-base xs:text-lg md:text-xl lg:text-2xl font-semibold mb-4 md:mb-6 lg:mb-8">Activité récente</h3>
+          <div className="space-y-3 md:space-y-4 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0">
           {recentActivity?.quotes?.slice(0, 2).map((quote) => (
             <div key={quote.id} className="ios-card flex items-center space-x-4" data-testid={`card-quote-${quote.id}`}>
               <div className="w-12 h-12 bg-secondary rounded-ios flex items-center justify-center">
