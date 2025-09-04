@@ -442,8 +442,9 @@ export default function AdminUsers() {
                     
                     {user.role !== "admin" && (
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
+                        className="border-destructive/50 hover:border-destructive hover:bg-destructive/10 text-destructive hover:text-destructive"
                         onClick={() => {
                           if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.name} ?`)) {
                             deleteUserMutation.mutate(user.id);
@@ -451,7 +452,7 @@ export default function AdminUsers() {
                         }}
                         data-testid={`button-delete-user-${user.id}`}
                       >
-                        <Trash2 size={16} className="text-destructive" />
+                        <Trash2 size={16} />
                       </Button>
                     )}
                   </div>
