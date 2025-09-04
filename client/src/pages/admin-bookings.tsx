@@ -4,8 +4,8 @@ import { apiGet, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, User, Car, Clock } from "lucide-react";
-import type { Booking } from "@shared/schema";
+import { Calendar, User, Car, Clock, UserCheck } from "lucide-react";
+import type { Booking, User as UserType } from "@shared/schema";
 
 export default function AdminBookings() {
   const [selectedBooking, setSelectedBooking] = useState<string>("");
@@ -16,6 +16,12 @@ export default function AdminBookings() {
 
   const { data: bookings, isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/admin/bookings"],
+  });
+
+  // Récupérer la liste des employés pour l'assignation
+  const { data: employees } = useQuery<UserType[]>({
+    queryKey: ["/api/admin/users"],
+    select: (users) => users?.filter(user => user.role === 'employee') || [],
   });
 
   const updateStatusMutation = useMutation({
@@ -53,6 +59,25 @@ export default function AdminBookings() {
       toast({
         title: "Erreur",
         description: error.message || "Impossible d'envoyer le message",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const assignEmployeeMutation = useMutation({
+    mutationFn: ({ bookingId, employeeId, notes }: { bookingId: string; employeeId: string; notes?: string }) => 
+      apiPost("/api/admin/assign-employee", { bookingId, employeeId, notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+      toast({
+        title: "Employé assigné",
+        description: "L'employé a été assigné à la réservation avec succès.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'assigner l'employé",
         variant: "destructive",
       });
     },
@@ -171,10 +196,42 @@ export default function AdminBookings() {
                     {booking.notes}
                   </p>
                 )}
+                
+                {/* Affichage de l'employé assigné */}
+                {booking.assignedEmployee && (
+                  <div className="flex items-center space-x-2 mt-2">
+                    <UserCheck className="w-4 h-4 text-green-400" />
+                    <span className="text-sm text-green-400" data-testid={`booking-assigned-employee-${booking.id}`}>
+                      Assigné à : {employees?.find(emp => emp.id === booking.assignedEmployee)?.name || booking.assignedEmployee}
+                    </span>
+                  </div>
+                )}
               </div>
               <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(booking.status!)}`}>
                 {getStatusText(booking.status!)}
               </span>
+            </div>
+
+            {/* Section assignation employé */}
+            <div className="flex items-center space-x-2 mb-3">
+              <Select 
+                value={booking.assignedEmployee || ""} 
+                onValueChange={(employeeId) => {
+                  assignEmployeeMutation.mutate({ bookingId: booking.id, employeeId });
+                }}
+              >
+                <SelectTrigger className="flex-1" data-testid={`select-employee-${booking.id}`}>
+                  <SelectValue placeholder="Assigner un employé" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Aucun employé</SelectItem>
+                  {employees?.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -195,6 +252,7 @@ export default function AdminBookings() {
               <Button 
                 variant="outline" 
                 size="sm"
+                className="border-primary/50 hover:border-primary hover:bg-primary/10 text-primary hover:text-primary rounded-lg font-medium shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
                 onClick={() => setShowContactModal(booking.id)}
                 data-testid={`button-contact-${booking.id}`}
               >

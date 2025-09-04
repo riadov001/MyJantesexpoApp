@@ -99,7 +99,7 @@ export function CacheManager() {
             onClick={clearApplicationCache}
             disabled={isClearing}
             variant="outline"
-            className="w-full"
+            className="w-full rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
             data-testid="button-clear-cache"
           >
             <Trash2 className="w-4 h-4 mr-2" />
@@ -109,7 +109,7 @@ export function CacheManager() {
           <Button
             onClick={clearCookies}
             variant="outline"
-            className="w-full"
+            className="w-full rounded-lg font-medium border-yellow-500/20 text-yellow-600 hover:bg-yellow-500/10 hover:border-yellow-500/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
             data-testid="button-clear-cookies"
           >
             <Trash2 className="w-4 h-4 mr-2" />
@@ -119,7 +119,7 @@ export function CacheManager() {
           <Button
             onClick={emergencyReset}
             variant="destructive"
-            className="w-full"
+            className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-95"
             data-testid="button-emergency-reset"
           >
             <AlertTriangle className="w-4 h-4 mr-2" />

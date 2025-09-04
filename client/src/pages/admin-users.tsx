@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiDelete, apiPut } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,15 +58,43 @@ const createUserSchema = z.object({
 
 type CreateUserData = z.infer<typeof createUserSchema>;
 
+// Schéma pour la mise à jour des utilisateurs (sans mot de passe)
+const updateUserSchema = z.object({
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  email: z.string().email("Email invalide"),
+  phone: z.string().optional(),
+  role: z.enum(["admin", "employee", "customer"]),
+  clientType: z.enum(["particulier", "professionnel"]).default("particulier"),
+  // Champs société (optionnels, requis seulement si professionnel)
+  companyName: z.string().optional(),
+  companyAddress: z.string().optional(),
+  companySiret: z.string().optional(),
+  companyVat: z.string().optional(),
+  companyApe: z.string().optional(),
+  companyContact: z.string().optional(),
+}).refine((data) => {
+  if (data.clientType === "professionnel") {
+    return data.companyName && data.companyName.length > 0;
+  }
+  return true;
+}, {
+  message: "Nom de l'entreprise requis pour les clients professionnels",
+  path: ["companyName"],
+});
+
+type UpdateUserData = z.infer<typeof updateUserSchema>;
+
 export default function AdminUsers() {
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const { data: users, isLoading } = useQuery({
     queryKey: ["/api/admin/users"],
   });
 
-  const form = useForm<CreateUserData>({
+  const createForm = useForm<CreateUserData>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       name: "",
@@ -84,14 +112,51 @@ export default function AdminUsers() {
     },
   });
 
-  const clientType = form.watch("clientType");
+  const clientType = createForm.watch("clientType");
+
+  const editForm = useForm<UpdateUserData>({
+    resolver: zodResolver(updateUserSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      role: "customer",
+      clientType: "particulier",
+      companyName: "",
+      companyAddress: "",
+      companySiret: "",
+      companyVat: "",
+      companyApe: "",
+      companyContact: "",
+    },
+  });
+
+  const editClientType = editForm.watch("clientType");
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    editForm.reset({
+      name: user.name,
+      email: user.email,
+      phone: user.phone || "",
+      role: user.role as "admin" | "employee" | "customer",
+      clientType: user.clientType as "particulier" | "professionnel" || "particulier",
+      companyName: user.companyName || "",
+      companyAddress: user.companyAddress || "",
+      companySiret: user.companySiret || "",
+      companyVat: user.companyVat || "",
+      companyApe: user.companyApe || "",
+      companyContact: user.companyContact || "",
+    });
+    setIsEditDialogOpen(true);
+  };
 
   const createUserMutation = useMutation({
     mutationFn: (data: CreateUserData) => apiPost("/api/admin/users", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setIsCreateDialogOpen(false);
-      form.reset();
+      createForm.reset();
       toast({
         title: "Utilisateur créé",
         description: "Le nouvel utilisateur a été créé avec succès",
@@ -101,6 +166,28 @@ export default function AdminUsers() {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de créer l'utilisateur",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateUserData }) => 
+      apiPut(`/api/admin/users/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsEditDialogOpen(false);
+      setEditingUser(null);
+      editForm.reset();
+      toast({
+        title: "Utilisateur modifié",
+        description: "L'utilisateur a été modifié avec succès",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de modifier l'utilisateur",
         variant: "destructive",
       });
     },
@@ -195,18 +282,18 @@ export default function AdminUsers() {
             <DialogHeader>
               <DialogTitle>Créer un utilisateur</DialogTitle>
             </DialogHeader>
-            <form onSubmit={form.handleSubmit((data) => createUserMutation.mutate(data))} className="space-y-4">
+            <form onSubmit={createForm.handleSubmit((data) => createUserMutation.mutate(data))} className="space-y-4">
               <div>
                 <Label htmlFor="name">Nom complet</Label>
                 <Input
                   id="name"
                   placeholder="Nom et prénom"
                   data-testid="input-create-name"
-                  {...form.register("name")}
+                  {...createForm.register("name")}
                 />
-                {form.formState.errors.name && (
+                {createForm.formState.errors.name && (
                   <p className="text-sm text-destructive mt-1">
-                    {form.formState.errors.name.message}
+                    {createForm.formState.errors.name.message}
                   </p>
                 )}
               </div>
@@ -218,11 +305,11 @@ export default function AdminUsers() {
                   type="email"
                   placeholder="utilisateur@exemple.com"
                   data-testid="input-create-email"
-                  {...form.register("email")}
+                  {...createForm.register("email")}
                 />
-                {form.formState.errors.email && (
+                {createForm.formState.errors.email && (
                   <p className="text-sm text-destructive mt-1">
-                    {form.formState.errors.email.message}
+                    {createForm.formState.errors.email.message}
                   </p>
                 )}
               </div>
@@ -234,11 +321,11 @@ export default function AdminUsers() {
                   type="password"
                   placeholder="••••••••"
                   data-testid="input-create-password"
-                  {...form.register("password")}
+                  {...createForm.register("password")}
                 />
-                {form.formState.errors.password && (
+                {createForm.formState.errors.password && (
                   <p className="text-sm text-destructive mt-1">
-                    {form.formState.errors.password.message}
+                    {createForm.formState.errors.password.message}
                   </p>
                 )}
               </div>
@@ -250,15 +337,15 @@ export default function AdminUsers() {
                   type="tel"
                   placeholder="06 12 34 56 78"
                   data-testid="input-create-phone"
-                  {...form.register("phone")}
+                  {...createForm.register("phone")}
                 />
               </div>
 
               <div>
                 <Label htmlFor="role">Rôle</Label>
                 <Select 
-                  value={form.watch("role")} 
-                  onValueChange={(value) => form.setValue("role", value as any)}
+                  value={createForm.watch("role")} 
+                  onValueChange={(value) => createForm.setValue("role", value as any)}
                 >
                   <SelectTrigger data-testid="select-create-role">
                     <SelectValue placeholder="Sélectionner un rôle" />
@@ -269,19 +356,19 @@ export default function AdminUsers() {
                     <SelectItem value="admin">Administrateur</SelectItem>
                   </SelectContent>
                 </Select>
-                {form.formState.errors.role && (
+                {createForm.formState.errors.role && (
                   <p className="text-sm text-destructive mt-1">
-                    {form.formState.errors.role.message}
+                    {createForm.formState.errors.role.message}
                   </p>
                 )}
               </div>
 
-              {form.watch("role") === "customer" && (
+              {createForm.watch("role") === "customer" && (
                 <div>
                   <Label htmlFor="clientType">Type de client</Label>
                   <Select 
-                    value={form.watch("clientType")} 
-                    onValueChange={(value) => form.setValue("clientType", value as any)}
+                    value={createForm.watch("clientType")} 
+                    onValueChange={(value) => createForm.setValue("clientType", value as any)}
                   >
                     <SelectTrigger data-testid="select-client-type">
                       <SelectValue placeholder="Type de client" />
@@ -294,7 +381,7 @@ export default function AdminUsers() {
                 </div>
               )}
 
-              {form.watch("role") === "customer" && clientType === "professionnel" && (
+              {createForm.watch("role") === "customer" && clientType === "professionnel" && (
                 <>
                   <div>
                     <Label htmlFor="companyName">Nom de l'entreprise *</Label>
@@ -302,11 +389,11 @@ export default function AdminUsers() {
                       id="companyName"
                       placeholder="Nom de l'entreprise"
                       data-testid="input-company-name"
-                      {...form.register("companyName")}
+                      {...createForm.register("companyName")}
                     />
-                    {form.formState.errors.companyName && (
+                    {createForm.formState.errors.companyName && (
                       <p className="text-sm text-destructive mt-1">
-                        {form.formState.errors.companyName.message}
+                        {createForm.formState.errors.companyName.message}
                       </p>
                     )}
                   </div>
@@ -317,7 +404,7 @@ export default function AdminUsers() {
                       id="companyAddress"
                       placeholder="Adresse complète de l'entreprise"
                       data-testid="input-company-address"
-                      {...form.register("companyAddress")}
+                      {...createForm.register("companyAddress")}
                     />
                   </div>
 
@@ -327,7 +414,7 @@ export default function AdminUsers() {
                       id="companySiret"
                       placeholder="Numéro SIRET"
                       data-testid="input-company-siret"
-                      {...form.register("companySiret")}
+                      {...createForm.register("companySiret")}
                     />
                   </div>
 
@@ -337,7 +424,7 @@ export default function AdminUsers() {
                       id="companyVat"
                       placeholder="Numéro de TVA intracommunautaire"
                       data-testid="input-company-vat"
-                      {...form.register("companyVat")}
+                      {...createForm.register("companyVat")}
                     />
                   </div>
 
@@ -347,7 +434,7 @@ export default function AdminUsers() {
                       id="companyApe"
                       placeholder="Code APE/NAF"
                       data-testid="input-company-ape"
-                      {...form.register("companyApe")}
+                      {...createForm.register("companyApe")}
                     />
                   </div>
 
@@ -357,7 +444,7 @@ export default function AdminUsers() {
                       id="companyContact"
                       placeholder="Nom du contact principal"
                       data-testid="input-company-contact"
-                      {...form.register("companyContact")}
+                      {...createForm.register("companyContact")}
                     />
                   </div>
                 </>
@@ -380,6 +467,187 @@ export default function AdminUsers() {
                   data-testid="button-submit-create"
                 >
                   {createUserMutation.isPending ? "Création..." : "Créer"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal modification utilisateur */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-sm mx-auto">
+            <DialogHeader>
+              <DialogTitle>Modifier l'utilisateur</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={editForm.handleSubmit((data) => updateUserMutation.mutate({ id: editingUser?.id || "", data }))} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Nom complet</Label>
+                <Input
+                  id="edit-name"
+                  placeholder="Nom et prénom"
+                  data-testid="input-edit-name"
+                  {...editForm.register("name")}
+                />
+                {editForm.formState.errors.name && (
+                  <p className="text-sm text-destructive mt-1">
+                    {editForm.formState.errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  placeholder="utilisateur@exemple.com"
+                  data-testid="input-edit-email"
+                  {...editForm.register("email")}
+                />
+                {editForm.formState.errors.email && (
+                  <p className="text-sm text-destructive mt-1">
+                    {editForm.formState.errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="edit-phone">Téléphone (optionnel)</Label>
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  placeholder="06 12 34 56 78"
+                  data-testid="input-edit-phone"
+                  {...editForm.register("phone")}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-role">Rôle</Label>
+                <Select 
+                  value={editForm.watch("role")} 
+                  onValueChange={(value) => editForm.setValue("role", value as any)}
+                >
+                  <SelectTrigger data-testid="select-edit-role">
+                    <SelectValue placeholder="Sélectionner un rôle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customer">Client</SelectItem>
+                    <SelectItem value="employee">Employé</SelectItem>
+                    <SelectItem value="admin">Administrateur</SelectItem>
+                  </SelectContent>
+                </Select>
+                {editForm.formState.errors.role && (
+                  <p className="text-sm text-destructive mt-1">
+                    {editForm.formState.errors.role.message}
+                  </p>
+                )}
+              </div>
+
+              {editForm.watch("role") === "customer" && (
+                <div>
+                  <Label htmlFor="edit-clientType">Type de client</Label>
+                  <Select 
+                    value={editForm.watch("clientType")} 
+                    onValueChange={(value) => editForm.setValue("clientType", value as any)}
+                  >
+                    <SelectTrigger data-testid="select-edit-client-type">
+                      <SelectValue placeholder="Type de client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="particulier">Particulier</SelectItem>
+                      <SelectItem value="professionnel">Professionnel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {editForm.watch("role") === "customer" && editClientType === "professionnel" && (
+                <>
+                  <div>
+                    <Label htmlFor="edit-companyName">Nom de l'entreprise *</Label>
+                    <Input
+                      id="edit-companyName"
+                      placeholder="Nom de l'entreprise"
+                      data-testid="input-edit-company-name"
+                      {...editForm.register("companyName")}
+                    />
+                    {editForm.formState.errors.companyName && (
+                      <p className="text-sm text-destructive mt-1">
+                        {editForm.formState.errors.companyName.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-companyAddress">Adresse de l'entreprise</Label>
+                    <Input
+                      id="edit-companyAddress"
+                      placeholder="Adresse complète de l'entreprise"
+                      data-testid="input-edit-company-address"
+                      {...editForm.register("companyAddress")}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-companySiret">SIRET</Label>
+                    <Input
+                      id="edit-companySiret"
+                      placeholder="Numéro SIRET"
+                      data-testid="input-edit-company-siret"
+                      {...editForm.register("companySiret")}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-companyVat">Numéro TVA</Label>
+                    <Input
+                      id="edit-companyVat"
+                      placeholder="Numéro de TVA intracommunautaire"
+                      data-testid="input-edit-company-vat"
+                      {...editForm.register("companyVat")}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-companyApe">Code APE</Label>
+                    <Input
+                      id="edit-companyApe"
+                      placeholder="Code APE/NAF"
+                      data-testid="input-edit-company-ape"
+                      {...editForm.register("companyApe")}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-companyContact">Contact dans l'entreprise</Label>
+                    <Input
+                      id="edit-companyContact"
+                      placeholder="Nom du contact principal"
+                      data-testid="input-edit-company-contact"
+                      {...editForm.register("companyContact")}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex space-x-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="flex-1 rounded-lg font-medium border-border/20 hover:bg-secondary/50 hover:border-border/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
+                  onClick={() => setIsEditDialogOpen(false)}
+                  data-testid="button-cancel-edit"
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-95"
+                  disabled={updateUserMutation.isPending}
+                  data-testid="button-submit-edit"
+                >
+                  {updateUserMutation.isPending ? "Modification..." : "Modifier"}
                 </Button>
               </div>
             </form>
@@ -439,6 +707,16 @@ export default function AdminUsers() {
                     >
                       {getRoleLabel(user.role)}
                     </Badge>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-primary/50 hover:border-primary hover:bg-primary/10 text-primary hover:text-primary rounded-lg font-medium shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
+                      onClick={() => handleEditUser(user)}
+                      data-testid={`button-edit-user-${user.id}`}
+                    >
+                      <Edit3 size={16} />
+                    </Button>
                     
                     {user.role !== "admin" && (
                       <Button
