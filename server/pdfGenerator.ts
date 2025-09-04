@@ -1,6 +1,8 @@
-// Simple PDF generator without external dependencies
+// PDF generator using html-pdf-node
 import path from "path";
 import fs from "fs";
+// @ts-ignore - html-pdf-node n'a pas de types TypeScript
+import htmlPdf from "html-pdf-node";
 
 interface InvoiceData {
     id: string;
@@ -43,11 +45,43 @@ export class PDFGenerator {
         return this.generateInvoicePDF(quote, 'quote');
     }
 
+    getQuotePreviewHTML(quote: any): string {
+        return this.generateMyJantesHTML(quote, 'quote');
+    }
+
+    getInvoicePreviewHTML(invoice: any): string {
+        return this.generateMyJantesHTML(invoice, 'invoice');
+    }
+
     private async generateAdvancedPDF(invoice: any, html: string): Promise<Buffer> {
-        // Generate a simple text-based PDF representation
-        // This is a fallback solution for environments without Puppeteer support
-        const simplePdfContent = this.generateSimplePdfContent(invoice, html);
-        return Buffer.from(simplePdfContent, 'utf8');
+        try {
+            // Configuration des options pour html-pdf-node
+            const options = {
+                format: 'A4',
+                border: {
+                    top: "0.5in",
+                    right: "0.5in",
+                    bottom: "0.5in",
+                    left: "0.5in"
+                },
+                height: "11.7in",
+                width: "8.3in",
+                timeout: 30000,
+                type: 'pdf',
+                quality: '75'
+            };
+
+            const file = { content: html };
+            
+            // Générer le PDF avec html-pdf-node
+            const pdfBuffer = await htmlPdf.generatePdf(file, options);
+            return pdfBuffer;
+        } catch (error) {
+            console.error("Erreur génération PDF avec html-pdf-node:", error);
+            // Fallback vers une méthode simple en cas d'erreur
+            const simplePdfContent = this.generateSimplePdfContent(invoice, html);
+            return Buffer.from(simplePdfContent, 'utf8');
+        }
     }
 
     private async generateSimplePDF(invoice: any, type: 'invoice' | 'quote' = 'invoice'): Promise<Buffer> {
@@ -56,8 +90,30 @@ export class PDFGenerator {
     }
 
     private generateSimplePdfContent(invoice: any, html: string): string {
-        // Create a simplified PDF-like content for now
-        // In a real environment with proper dependencies, this would use html-pdf-node
+        // Créer un contenu PDF simple avec les données réelles
+        const documentTitle = invoice.id ? `DEVIS DV-${invoice.id.substring(0, 6)}` : 'DEVIS';
+        const clientName = invoice.user?.name || 'Client non spécifié';
+        const amount = invoice.amount || '0';
+        const description = invoice.description || 'Description non disponible';
+        const date = new Date(invoice.createdAt || Date.now()).toLocaleDateString('fr-FR');
+        
+        const content = `MY JANTES - ${documentTitle}
+
+Date: ${date}
+Client: ${clientName}
+Email: ${invoice.user?.email || 'N/A'}
+Telephone: ${invoice.user?.phone || 'N/A'}
+
+Description des services:
+${description}
+
+Montant total: ${amount} EUR
+
+--
+MY JANTES - SASU
+46 rue de la convention 62800 Lievin
+SIRET: 91367819900021 - TVA: FR73913678199`;
+
         return `%PDF-1.4
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
@@ -72,12 +128,12 @@ endobj
 endobj
 
 4 0 obj
-<< /Length 44 >>
+<< /Length ${content.length + 50} >>
 stream
 BT
-/F1 12 Tf
-100 700 Td
-(PDF Generation en cours...) Tj
+/F1 10 Tf
+50 750 Td
+${content.split('\n').map((line, index) => `(${line.replace(/[()\\]/g, '\\$&')}) Tj 0 -15 Td`).join(' ')}
 ET
 endstream
 endobj
@@ -92,7 +148,7 @@ xref
 trailer
 << /Size 5 /Root 1 0 R >>
 startxref
-301
+${300 + content.length}
 %%EOF`;
     }
 
