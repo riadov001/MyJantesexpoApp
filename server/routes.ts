@@ -590,6 +590,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Notify client about booking
+  app.post("/api/admin/bookings/:id/notify", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { comment } = req.body;
+      const booking = await storage.getBooking(req.params.id);
+      
+      if (booking) {
+        await storage.createNotification({
+          userId: booking.userId,
+          title: "Message administrateur",
+          message: comment || "L'administrateur a envoyé un message concernant votre réservation",
+          type: "booking",
+          relatedId: booking.id,
+        });
+      }
+      
+      res.json({ message: "Notification envoyée avec succès" });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de l'envoi de la notification" });
+    }
+  });
+
   app.get("/api/admin/users", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const users = await storage.getAllUsers();
