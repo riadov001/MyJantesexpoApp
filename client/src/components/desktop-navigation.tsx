@@ -35,11 +35,11 @@ export default function DesktopNavigation() {
   const { data: unreadCount } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
     refetchInterval: 30000,
-  });
+  }) as { data?: { count: number } };
 
   const handleLogout = () => {
-    AuthService.logout();
-    window.location.href = '/login';
+    AuthService.removeToken();
+    setLocation('/login');
   };
 
   return (
@@ -59,7 +59,7 @@ export default function DesktopNavigation() {
                 {navItems.map((item) => {
                   const isActive = location === item.path || (item.path === "/admin" && location.startsWith("/admin"));
                   const isNotificationTab = item.path === "/notifications";
-                  const hasUnreadNotifications = unreadCount?.count > 0;
+                  const hasUnreadNotifications = (unreadCount as any)?.count > 0;
                   const isAdminTab = 'isAdmin' in item && item.isAdmin;
                   
                   return (
@@ -78,7 +78,7 @@ export default function DesktopNavigation() {
                         {isNotificationTab && hasUnreadNotifications && (
                           <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
                             <span className="text-white text-xs font-bold">
-                              {unreadCount.count > 9 ? "9+" : unreadCount.count}
+                              {(unreadCount as any)?.count > 9 ? "9+" : (unreadCount as any)?.count}
                             </span>
                           </div>
                         )}
