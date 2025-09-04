@@ -33,10 +33,10 @@ export class PDFGenerator {
     async generateInvoicePDF(invoice: any, type: 'invoice' | 'quote' = 'invoice'): Promise<Buffer> {
         try {
             const html = this.generateMyJantesHTML(invoice, type);
-            return this.generateAdvancedPDF(invoice, html);
+            return await this.generateAdvancedPDF(invoice, html);
         } catch (error) {
             console.error("PDF generation error:", error);
-            return this.generateSimplePDF(invoice, type);
+            return await this.generateSimplePDF(invoice, type);
         }
     }
 
@@ -44,13 +44,34 @@ export class PDFGenerator {
         return this.generateInvoicePDF(quote, 'quote');
     }
 
-    private generateAdvancedPDF(invoice: any, html: string): Buffer {
-        // Use HTML to PDF for better formatting
-        return Buffer.from(html, 'utf8');
+    private async generateAdvancedPDF(invoice: any, html: string): Promise<Buffer> {
+        try {
+            // Configure html-pdf-node options
+            const options = {
+                format: 'A4',
+                margin: { 
+                    top: '20mm',
+                    right: '20mm',
+                    bottom: '20mm',
+                    left: '20mm'
+                },
+                printBackground: true,
+                preferCSSPageSize: true
+            };
+
+            const file = { content: html };
+            const pdfBuffer = await htmlPdf.generatePdf(file, options);
+            return pdfBuffer;
+        } catch (error) {
+            console.error('Error generating PDF with html-pdf-node:', error);
+            // Fallback to simple buffer for basic functionality
+            return Buffer.from(html, 'utf8');
+        }
     }
 
-    private generateSimplePDF(invoice: any, type: 'invoice' | 'quote' = 'invoice'): Buffer {
-        return this.generateAdvancedPDF(invoice, "");
+    private async generateSimplePDF(invoice: any, type: 'invoice' | 'quote' = 'invoice'): Promise<Buffer> {
+        const basicHtml = this.generateMyJantesHTML(invoice, type);
+        return await this.generateAdvancedPDF(invoice, basicHtml);
     }
 
     private generateMyJantesHTML(invoice: any, type: 'invoice' | 'quote' = 'invoice'): string {
@@ -361,7 +382,7 @@ export class PDFGenerator {
             </tr>
         </thead>
         <tbody>
-            ${items.map(item => `
+            ${items.map((item: any) => `
                 <tr>
                     <td class="description-col">${item.description || invoice.description}</td>
                     <td class="date-col">${new Date(invoice.createdAt).toLocaleDateString("fr-FR")}</td>
@@ -413,7 +434,7 @@ export class PDFGenerator {
             ${invoice.photosBefore?.length ? `
                 <div class="photo-group">
                     <h3>Avant</h3>
-                    ${invoice.photosBefore.map(photo => 
+                    ${invoice.photosBefore.map((photo: string) => 
                         `<img src="${photo}" alt="Photo avant" class="photo">`
                     ).join('')}
                 </div>
@@ -422,7 +443,7 @@ export class PDFGenerator {
             ${invoice.photosAfter?.length ? `
                 <div class="photo-group">
                     <h3>Après</h3>
-                    ${invoice.photosAfter.map(photo => 
+                    ${invoice.photosAfter.map((photo: string) => 
                         `<img src="${photo}" alt="Photo après" class="photo">`
                     ).join('')}
                 </div>
