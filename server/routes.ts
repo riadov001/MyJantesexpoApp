@@ -737,12 +737,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/leave-requests", authenticateToken, requireAdminOrEmployee, async (req: any, res) => {
+  // Endpoint pour les employés/admins pour créer leurs propres demandes
+  app.post("/api/leave-requests", authenticateToken, async (req: any, res) => {
     try {
       const leaveData = insertLeaveRequestSchema.parse(req.body);
       const leaveRequest = await storage.createLeaveRequest({
         ...leaveData,
         employeeId: req.user.userId, // L'employé connecté fait la demande
+      });
+      res.status(201).json(leaveRequest);
+    } catch (error) {
+      console.error("Create leave request error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erreur lors de la création de la demande de congés" });
+    }
+  });
+
+  // Endpoint admin pour créer des demandes pour d'autres employés
+  app.post("/api/admin/leave-requests", authenticateToken, requireAdminOrEmployee, async (req: any, res) => {
+    try {
+      const leaveData = insertLeaveRequestSchema.parse(req.body);
+      const leaveRequest = await storage.createLeaveRequest({
+        ...leaveData,
+        employeeId: leaveData.employeeId || req.user.userId, // Utiliser employeeId fourni ou celui connecté
       });
       res.status(201).json(leaveRequest);
     } catch (error) {

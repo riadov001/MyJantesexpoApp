@@ -60,8 +60,8 @@ export default function Profile() {
   });
 
   // Formulaire pour les demandes de congés
-  const leaveForm = useForm<InsertLeaveRequest>({
-    resolver: zodResolver(insertLeaveRequestSchema.omit({ employeeId: true })),
+  const leaveForm = useForm<Omit<InsertLeaveRequest, 'employeeId'>>({
+    resolver: zodResolver(insertLeaveRequestSchema),
     defaultValues: {
       startDate: new Date(),
       endDate: new Date(),
@@ -119,7 +119,15 @@ export default function Profile() {
   });
 
   const createLeaveRequestMutation = useMutation({
-    mutationFn: (data: Omit<InsertLeaveRequest, 'employeeId'>) => apiPost("/api/admin/leave-requests", data),
+    mutationFn: (data: Omit<InsertLeaveRequest, 'employeeId'>) => {
+      // Transformer les Date en strings ISO pour l'envoi
+      const transformedData = {
+        ...data,
+        startDate: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
+        endDate: data.endDate instanceof Date ? data.endDate.toISOString() : data.endDate,
+      };
+      return apiPost("/api/leave-requests", transformedData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leave-requests"] });
       toast({ title: "Succès", description: "Demande de congés envoyée avec succès" });
