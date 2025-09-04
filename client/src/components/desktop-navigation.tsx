@@ -43,9 +43,9 @@ export default function DesktopNavigation() {
   };
 
   return (
-    <div className="desktop-nav">
+    <div className="desktop-nav hidden lg:block">
       <nav className="bg-card border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-3 lg:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-8">
               <div className="flex items-center space-x-3">
@@ -55,7 +55,7 @@ export default function DesktopNavigation() {
                 <h1 className="text-xl font-bold">MyJantes</h1>
               </div>
               
-              <div className="flex space-x-6">
+              <div className="hidden md:flex space-x-4 lg:space-x-6">
                 {navItems.map((item) => {
                   const isActive = location === item.path || (item.path === "/admin" && location.startsWith("/admin"));
                   const isNotificationTab = item.path === "/notifications";
