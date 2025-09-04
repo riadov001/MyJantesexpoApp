@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertInvoiceSchema, insertNotificationSchema, insertWorkProgressSchema, insertBookingAssignmentSchema, loginSchema, changePasswordSchema, updateClientProfileSchema } from "@shared/schema";
+import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertInvoiceSchema, insertNotificationSchema, insertWorkProgressSchema, insertBookingAssignmentSchema, loginSchema, changePasswordSchema, updateClientProfileSchema, updateUserAdminSchema, insertLeaveRequestSchema } from "@shared/schema";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
@@ -650,6 +650,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PUT endpoint for updating users
+  app.put("/api/admin/users/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      const userData = updateUserAdminSchema.parse(req.body);
+      
+      // Check if user exists
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      // Check if email is being changed and if it already exists
+      if (userData.email && userData.email !== existingUser.email) {
+        const userWithEmail = await storage.getUserByEmail(userData.email);
+        if (userWithEmail) {
+          return res.status(400).json({ message: "Un utilisateur avec cet email existe déjà" });
+        }
+      }
+
+      const updatedUser = await storage.updateUser(userId, userData);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+      
+      res.json({
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        role: updatedUser.role,
+        clientType: updatedUser.clientType,
+        companyName: updatedUser.companyName,
+        companyAddress: updatedUser.companyAddress,
+        companySiret: updatedUser.companySiret,
+        companyVat: updatedUser.companyVat,
+        companyApe: updatedUser.companyApe,
+        companyContact: updatedUser.companyContact,
+        createdAt: updatedUser.createdAt,
+      });
+    } catch (error: any) {
+      console.error("Update user error:", error);
+      res.status(400).json({ message: error.message || "Erreur lors de la mise à jour de l'utilisateur" });
+    }
+  });
+
   app.delete("/api/admin/users/:id", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const userId = req.params.id;
@@ -664,6 +710,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Utilisateur supprimé avec succès" });
     } catch (error) {
       res.status(500).json({ message: "Erreur lors de la suppression de l'utilisateur" });
+    }
+  });
+
+  // Leave Requests routes
+  app.get("/api/admin/leave-requests", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const leaveRequests = await storage.getLeaveRequests();
+      res.json(leaveRequests);
+    } catch (error) {
+      console.error("Get leave requests error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des demandes de congés" });
+    }
+  });
+
+  app.get("/api/admin/leave-requests/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const leaveRequest = await storage.getLeaveRequest(req.params.id);
+      if (!leaveRequest) {
+        return res.status(404).json({ message: "Demande de congés non trouvée" });
+      }
+      res.json(leaveRequest);
+    } catch (error) {
+      console.error("Get leave request error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération de la demande de congés" });
+    }
+  });
+
+  app.post("/api/admin/leave-requests", authenticateToken, requireAdminOrEmployee, async (req: any, res) => {
+    try {
+      const leaveData = insertLeaveRequestSchema.parse(req.body);
+      const leaveRequest = await storage.createLeaveRequest({
+        ...leaveData,
+        employeeId: req.user.userId, // L'employé connecté fait la demande
+      });
+      res.status(201).json(leaveRequest);
+    } catch (error) {
+      console.error("Create leave request error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erreur lors de la création de la demande de congés" });
+    }
+  });
+
+  app.put("/api/admin/leave-requests/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { status, notes } = req.body;
+      
+      if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Statut invalide. Doit être 'approved' ou 'rejected'" });
+      }
+
+      const updatedLeaveRequest = await storage.updateLeaveRequestStatus(
+        req.params.id, 
+        status, 
+        req.user.userId, // Admin qui approuve
+        notes
+      );
+
+      if (!updatedLeaveRequest) {
+        return res.status(404).json({ message: "Demande de congés non trouvée" });
+      }
+
+      // Créer une notification pour l'employé
+      await storage.createNotification({
+        userId: updatedLeaveRequest.employeeId,
+        title: `Demande de congés ${status === 'approved' ? 'approuvée' : 'refusée'}`,
+        message: `Votre demande de congés du ${new Date(updatedLeaveRequest.startDate).toLocaleDateString('fr-FR')} au ${new Date(updatedLeaveRequest.endDate).toLocaleDateString('fr-FR')} a été ${status === 'approved' ? 'approuvée' : 'refusée'}`,
+        type: "leave",
+        relatedId: updatedLeaveRequest.id,
+      });
+
+      res.json(updatedLeaveRequest);
+    } catch (error) {
+      console.error("Update leave request status error:", error);
+      res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
+    }
+  });
+
+  // Employee leave requests (for employees to view their own requests)
+  app.get("/api/leave-requests", authenticateToken, async (req: any, res) => {
+    try {
+      const userLeaveRequests = await storage.getLeaveRequests(req.user.userId);
+      res.json(userLeaveRequests);
+    } catch (error) {
+      console.error("Get employee leave requests error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération de vos demandes de congés" });
     }
   });
 

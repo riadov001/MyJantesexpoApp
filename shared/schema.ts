@@ -221,6 +221,21 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
 });
 
+// Schéma pour la mise à jour des utilisateurs par l'admin (sans mot de passe)
+export const updateUserAdminSchema = createInsertSchema(users).omit({
+  id: true,
+  password: true,
+  createdAt: true,
+}).refine((data) => {
+  if (data.clientType === "professionnel") {
+    return data.companyName && data.companyName.length > 0;
+  }
+  return true;
+}, {
+  message: "Nom de l'entreprise requis pour les clients professionnels",
+  path: ["companyName"],
+});
+
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
 });

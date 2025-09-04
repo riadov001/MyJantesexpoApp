@@ -1,6 +1,6 @@
 import { AuthService } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Phone, Bell, FileText, Shield, LogOut, User as UserIcon, Settings, Key, Edit, Building } from "lucide-react";
+import { Phone, Bell, FileText, Shield, LogOut, User as UserIcon, Settings, Key, Edit, Building, Calendar, Clock, Plus, CheckCircle, XCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { changePasswordSchema, updateClientProfileSchema, type ChangePasswordData, type UpdateClientProfileData, type User } from "@shared/schema";
+import { changePasswordSchema, updateClientProfileSchema, insertLeaveRequestSchema, type ChangePasswordData, type UpdateClientProfileData, type User, type LeaveRequest, type InsertLeaveRequest } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiPost, apiPut } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,8 +19,11 @@ export default function Profile() {
   const [, setLocation] = useLocation();
   const user = AuthService.getUser();
   const isAdmin = user?.role === "admin";
+  const isEmployee = user?.role === "employee";
+  const isAdminOrEmployee = isAdmin || isEmployee;
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -54,6 +57,22 @@ export default function Profile() {
       companyApe: fullUserData?.companyApe || "",
       companyContact: fullUserData?.companyContact || "",
     },
+  });
+
+  // Formulaire pour les demandes de congés
+  const leaveForm = useForm<InsertLeaveRequest>({
+    resolver: zodResolver(insertLeaveRequestSchema.omit({ employeeId: true })),
+    defaultValues: {
+      startDate: new Date(),
+      endDate: new Date(),
+      reason: "",
+    },
+  });
+
+  // Query pour récupérer les demandes de congés
+  const { data: leaveRequests, isLoading: isLoadingLeaveRequests } = useQuery<LeaveRequest[]>({
+    queryKey: ["/api/leave-requests"],
+    enabled: isAdminOrEmployee,
   });
 
   // Mettre à jour les valeurs par défaut quand les données sont chargées - UNE SEULE FOIS
@@ -99,6 +118,19 @@ export default function Profile() {
     },
   });
 
+  const createLeaveRequestMutation = useMutation({
+    mutationFn: (data: Omit<InsertLeaveRequest, 'employeeId'>) => apiPost("/api/admin/leave-requests", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leave-requests"] });
+      toast({ title: "Succès", description: "Demande de congés envoyée avec succès" });
+      leaveForm.reset();
+      setIsLeaveModalOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleLogout = () => {
     AuthService.removeToken();
     setLocation("/login");
@@ -117,6 +149,12 @@ export default function Profile() {
       action: () => setIsPasswordModalOpen(true),
       testId: "button-change-password"
     },
+    ...(isAdminOrEmployee ? [{
+      icon: Calendar,
+      label: "Mes congés",
+      action: () => setIsLeaveModalOpen(true),
+      testId: "button-my-leave"
+    }] : []),
     {
       icon: Phone,
       label: "Contact",
@@ -257,7 +295,7 @@ export default function Profile() {
           {menuItems.map((item, index) => (
             <button
               key={index}
-              className="w-full flex items-center space-x-4 p-4 hover:bg-secondary rounded-ios transition-colors"
+              className="w-full flex items-center space-x-4 p-4 hover:bg-secondary/80 rounded-ios transition-all duration-200 hover:shadow-sm active:scale-[0.98] border border-transparent hover:border-border/50"
               onClick={item.action}
               data-testid={item.testId}
             >
@@ -279,7 +317,7 @@ export default function Profile() {
               {adminMenuItems.map((item, index) => (
                 <button
                   key={`admin-${index}`}
-                  className="w-full flex items-center space-x-4 p-4 hover:bg-secondary rounded-ios transition-colors"
+                  className="w-full flex items-center space-x-4 p-4 hover:bg-primary/10 rounded-ios transition-all duration-200 hover:shadow-sm active:scale-[0.98] border border-transparent hover:border-primary/20"
                   onClick={item.action}
                   data-testid={item.testId}
                 >
@@ -294,7 +332,7 @@ export default function Profile() {
           <div className="border-t border-border my-4"></div>
           
           <button
-            className="w-full flex items-center space-x-4 p-4 hover:bg-secondary rounded-ios transition-colors text-red-400"
+            className="w-full flex items-center space-x-4 p-4 hover:bg-red-500/10 rounded-ios transition-all duration-200 text-red-400 hover:text-red-500 hover:shadow-sm active:scale-[0.98] border border-transparent hover:border-red-500/20"
             onClick={handleLogout}
             data-testid="button-logout"
           >
@@ -359,14 +397,14 @@ export default function Profile() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsPasswordModalOpen(false)}
-                  className="flex-1"
+                  className="flex-1 rounded-lg font-medium border-border/20 hover:bg-secondary/50 hover:border-border/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
                 >
                   Annuler
                 </Button>
                 <Button
                   type="submit"
                   disabled={changePasswordMutation.isPending}
-                  className="flex-1"
+                  className="flex-1 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-95"
                   data-testid="button-submit-password"
                 >
                   {changePasswordMutation.isPending ? "Modification..." : "Modifier"}
@@ -554,14 +592,14 @@ export default function Profile() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsProfileModalOpen(false)}
-                  className="flex-1"
+                  className="flex-1 rounded-lg font-medium border-border/20 hover:bg-secondary/50 hover:border-border/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
                 >
                   Annuler
                 </Button>
                 <Button
                   type="submit"
                   disabled={updateProfileMutation.isPending}
-                  className="flex-1"
+                  className="flex-1 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-95"
                   data-testid="button-submit-profile"
                 >
                   {updateProfileMutation.isPending ? "Enregistrement..." : "Enregistrer"}
@@ -571,6 +609,161 @@ export default function Profile() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal demandes de congés */}
+      {isAdminOrEmployee && (
+        <Dialog open={isLeaveModalOpen} onOpenChange={setIsLeaveModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Mes congés</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Formulaire nouvelle demande */}
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold">Nouvelle demande</h3>
+                  <Plus className="w-5 h-5 text-primary" />
+                </div>
+
+                <Form {...leaveForm}>
+                  <form
+                    onSubmit={leaveForm.handleSubmit((data) => createLeaveRequestMutation.mutate(data))}
+                    className="space-y-4"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={leaveForm.control}
+                        name="startDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Date de début</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="date"
+                                {...field}
+                                value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : ''}
+                                onChange={(e) => field.onChange(new Date(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={leaveForm.control}
+                        name="endDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Date de fin</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="date"
+                                {...field}
+                                value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : ''}
+                                onChange={(e) => field.onChange(new Date(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={leaveForm.control}
+                      name="reason"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Motif</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Décrivez le motif de votre demande de congés..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      disabled={createLeaveRequestMutation.isPending}
+                      className="w-full"
+                      data-testid="button-submit-leave-request"
+                    >
+                      {createLeaveRequestMutation.isPending ? "Envoi en cours..." : "Envoyer la demande"}
+                    </Button>
+                  </form>
+                </Form>
+              </div>
+
+              {/* Liste des demandes existantes */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold mb-4">Mes demandes de congés</h3>
+                
+                {isLoadingLeaveRequests ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <p className="mt-2 text-muted-foreground">Chargement des demandes...</p>
+                  </div>
+                ) : !leaveRequests || leaveRequests.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Aucune demande de congés pour le moment</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {leaveRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-secondary/20"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Clock className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium">
+                              {new Date(request.startDate).toLocaleDateString('fr-FR')} - 
+                              {' '}{new Date(request.endDate).toLocaleDateString('fr-FR')}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{request.reason}</p>
+                          {request.notes && (
+                            <p className="text-sm text-blue-600 mt-1">Note: {request.notes}</p>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {request.status === 'pending' && (
+                            <div className="flex items-center gap-1 text-orange-600 bg-orange-100 px-2 py-1 rounded-full text-xs">
+                              <Clock className="w-3 h-3" />
+                              En attente
+                            </div>
+                          )}
+                          {request.status === 'approved' && (
+                            <div className="flex items-center gap-1 text-green-600 bg-green-100 px-2 py-1 rounded-full text-xs">
+                              <CheckCircle className="w-3 h-3" />
+                              Approuvé
+                            </div>
+                          )}
+                          {request.status === 'rejected' && (
+                            <div className="flex items-center gap-1 text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">
+                              <XCircle className="w-3 h-3" />
+                              Refusé
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
