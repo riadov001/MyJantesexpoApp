@@ -4,17 +4,24 @@ import { apiGet, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, User, Car, Clock } from "lucide-react";
-import type { Booking } from "@shared/schema";
+import { Calendar, User, Car, Clock, UserCheck } from "lucide-react";
+import type { Booking, User as UserType } from "@shared/schema";
 
 export default function AdminBookings() {
   const [selectedBooking, setSelectedBooking] = useState<string>("");
+  const [contactComment, setContactComment] = useState<string>("");
+  const [showContactModal, setShowContactModal] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: bookings, isLoading } = useQuery({
+  const { data: bookings, isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/admin/bookings"],
-    queryFn: () => apiGet<Booking[]>("/api/admin/bookings"),
+  });
+
+  // Récupérer la liste des employés pour l'assignation
+  const { data: employees } = useQuery<UserType[]>({
+    queryKey: ["/api/admin/users"],
+    select: (users) => users?.filter(user => user.role === 'employee') || [],
   });
 
   const updateStatusMutation = useMutation({
@@ -32,6 +39,45 @@ export default function AdminBookings() {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de mettre à jour le statut",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const contactClientMutation = useMutation({
+    mutationFn: ({ id, comment }: { id: string; comment: string }) => 
+      apiPost(`/api/admin/bookings/${id}/notify`, { comment }),
+    onSuccess: () => {
+      toast({
+        title: "Message envoyé",
+        description: "Le client a été notifié avec succès.",
+      });
+      setShowContactModal("");
+      setContactComment("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'envoyer le message",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const assignEmployeeMutation = useMutation({
+    mutationFn: ({ bookingId, employeeId, notes }: { bookingId: string; employeeId: string; notes?: string }) => 
+      apiPost("/api/admin/assign-employee", { bookingId, employeeId, notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+      toast({
+        title: "Employé assigné",
+        description: "L'employé a été assigné à la réservation avec succès.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'assigner l'employé",
         variant: "destructive",
       });
     },
@@ -109,7 +155,34 @@ export default function AdminBookings() {
                 <div className="flex items-center space-x-2 mb-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm" data-testid={`booking-date-${booking.id}`}>
-                    {formatDate(booking.date)} - {booking.timeSlot}
+                    {booking.startDateTime && booking.endDateTime ? (
+                      <>
+                        {new Date(booking.startDateTime).toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric"
+                        })} {new Date(booking.startDateTime).toLocaleTimeString("fr-FR", {
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                        {" → "}
+                        {new Date(booking.endDateTime).toLocaleDateString("fr-FR", {
+                          day: "numeric", 
+                          month: "short",
+                          year: "numeric"
+                        })} {new Date(booking.endDateTime).toLocaleTimeString("fr-FR", {
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                        {new Date(booking.startDateTime).toDateString() !== new Date(booking.endDateTime).toDateString() && (
+                          <span className="text-green-400 ml-2">
+                            ({Math.ceil((new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime()) / (1000 * 60 * 60 * 24))} jour{Math.ceil((new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime()) / (1000 * 60 * 60 * 24)) > 1 ? 's' : ''})
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      `${formatDate(booking.date || '')} - ${booking.timeSlot || ''}`
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2 mb-2">
@@ -123,10 +196,43 @@ export default function AdminBookings() {
                     {booking.notes}
                   </p>
                 )}
+                
+                {/* Affichage de l'employé assigné */}
+                {booking.assignedEmployee && (
+                  <div className="flex items-center space-x-2 mt-2">
+                    <UserCheck className="w-4 h-4 text-green-400" />
+                    <span className="text-sm text-green-400" data-testid={`booking-assigned-employee-${booking.id}`}>
+                      Assigné à : {employees?.find(emp => emp.id === booking.assignedEmployee)?.name || booking.assignedEmployee}
+                    </span>
+                  </div>
+                )}
               </div>
               <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(booking.status!)}`}>
                 {getStatusText(booking.status!)}
               </span>
+            </div>
+
+            {/* Section assignation employé */}
+            <div className="flex items-center space-x-2 mb-3">
+              <Select 
+                value={booking.assignedEmployee || "unassigned"} 
+                onValueChange={(employeeId) => {
+                  const actualEmployeeId = employeeId === "unassigned" ? "" : employeeId;
+                  assignEmployeeMutation.mutate({ bookingId: booking.id, employeeId: actualEmployeeId });
+                }}
+              >
+                <SelectTrigger className="flex-1" data-testid={`select-employee-${booking.id}`}>
+                  <SelectValue placeholder="Assigner un employé" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Aucun employé</SelectItem>
+                  {employees?.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -147,6 +253,8 @@ export default function AdminBookings() {
               <Button 
                 variant="outline" 
                 size="sm"
+                className="border-primary/50 hover:border-primary hover:bg-primary/10 text-primary hover:text-primary rounded-lg font-medium shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
+                onClick={() => setShowContactModal(booking.id)}
                 data-testid={`button-contact-${booking.id}`}
               >
                 Contacter
@@ -155,7 +263,7 @@ export default function AdminBookings() {
 
             <div className="mt-3 text-xs text-muted-foreground">
               <Clock className="w-3 h-3 inline mr-1" />
-              Créée le {formatDate(booking.createdAt!)}
+              Créée le {formatDate(booking.createdAt?.toString() || '')}
             </div>
           </div>
         ))}
@@ -167,6 +275,41 @@ export default function AdminBookings() {
           </div>
         )}
       </div>
+
+      {/* Modal de contact client */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-ios w-11/12 max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Contacter le client</h3>
+            <textarea
+              value={contactComment}
+              onChange={(e) => setContactComment(e.target.value)}
+              placeholder="Tapez votre message au client..."
+              className="w-full p-3 border border-border rounded-ios resize-none"
+              rows={4}
+            />
+            <div className="flex space-x-3 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowContactModal("");
+                  setContactComment("");
+                }}
+                className="flex-1"
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => contactClientMutation.mutate({ id: showContactModal, comment: contactComment })}
+                disabled={!contactComment.trim() || contactClientMutation.isPending}
+                className="flex-1"
+              >
+                {contactClientMutation.isPending ? "Envoi..." : "Envoyer"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

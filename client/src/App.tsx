@@ -1,8 +1,4 @@
 import { Switch, Route, Redirect } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthService } from "./lib/auth";
 import Login from "@/pages/login";
 import Home from "@/pages/home";
@@ -13,10 +9,22 @@ import History from "@/pages/history";
 import Profile from "@/pages/profile";
 import Contact from "@/pages/contact";
 import Notifications from "@/pages/notifications";
+import Garanties from "@/pages/garanties";
+import MentionsLegales from "@/pages/mentions-legales";
+import CGV from "@/pages/cgv";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminBookings from "@/pages/admin-bookings";
 import AdminQuotes from "@/pages/admin-quotes";
+import AdminCreateQuote from "@/pages/admin-create-quote";
+import AdminInvoices from "@/pages/admin-invoices";
+import AdminUsers from "@/pages/admin-users";
+import AdminLeaves from "@/pages/admin-leaves";
+import AdminWorkProgress from "@/pages/admin-work-progress";
+import AdminProfile from "@/pages/admin-profile";
+import AdminCalendar from "@/pages/admin-calendar";
+import AdminPlanning from "@/pages/admin-planning";
 import BottomNavigation from "@/components/bottom-navigation";
+import DesktopNavigation from "@/components/desktop-navigation";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -46,25 +54,36 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
   return <Component />;
 }
 
+function AdminOrEmployeeRoute({ component: Component }: { component: React.ComponentType }) {
+  const isAuthenticated = AuthService.isAuthenticated();
+  const user = AuthService.getUser();
+  const isAdminOrEmployee = user?.role === "admin" || user?.role === "employee";
+  
+  if (!isAuthenticated) {
+    return <Redirect to="/login" />;
+  }
+  
+  if (!isAdminOrEmployee) {
+    return <Redirect to="/" />;
+  }
+  
+  return <Component />;
+}
+
 function Router() {
   const [location] = useLocation();
   const isAuthenticated = AuthService.isAuthenticated();
   const showBottomNav = isAuthenticated && location !== "/login" && location !== "/contact";
+  const showDesktopNav = isAuthenticated && location !== "/login";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-sm mx-auto bg-background min-h-screen relative">
-        {/* Status Bar */}
-        <div className="h-11 flex items-center justify-between px-6 text-sm font-medium">
-          <span>9:41</span>
-          <div className="flex items-center space-x-1">
-            <i className="fas fa-signal text-xs"></i>
-            <i className="fas fa-wifi text-xs"></i>
-            <div className="w-6 h-3 border border-foreground rounded-sm">
-              <div className="w-4 h-1.5 bg-foreground rounded-sm m-0.5"></div>
-            </div>
-          </div>
-        </div>
+      {/* Desktop Navigation - masquée sur mobile */}
+      {showDesktopNav && <DesktopNavigation />}
+      
+      {/* Container principal avec padding pour desktop nav */}
+      <div className={`bg-background min-h-screen relative ${showDesktopNav ? 'lg:pt-20' : ''}`}>
+        <div className="w-full px-4 xs:px-6 mx-auto lg:max-w-none lg:px-8 xl:px-12 2xl:px-16">
 
         <Switch>
           <Route path="/login" component={Login} />
@@ -76,18 +95,35 @@ function Router() {
           <Route path="/notifications" component={() => <ProtectedRoute component={Notifications} />} />
           <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
           <Route path="/contact" component={() => <ProtectedRoute component={Contact} />} />
+          <Route path="/garanties" component={Garanties} />
+          <Route path="/mentions-legales" component={MentionsLegales} />
+          <Route path="/cgv" component={CGV} />
           
           {/* Admin Routes */}
           <Route path="/admin" component={() => <AdminRoute component={AdminDashboard} />} />
           <Route path="/admin/bookings" component={() => <AdminRoute component={AdminBookings} />} />
           <Route path="/admin/quotes" component={() => <AdminRoute component={AdminQuotes} />} />
+          <Route path="/admin/quotes/create" component={() => <AdminRoute component={AdminCreateQuote} />} />
+          <Route path="/admin/invoices" component={() => <AdminRoute component={AdminInvoices} />} />
+          <Route path="/admin/users" component={() => <AdminRoute component={AdminUsers} />} />
+          <Route path="/admin/leaves" component={() => <AdminRoute component={AdminLeaves} />} />
+          <Route path="/admin/work-progress" component={() => <AdminRoute component={AdminWorkProgress} />} />
+          <Route path="/admin/calendar" component={() => <AdminRoute component={AdminCalendar} />} />
+          <Route path="/admin/planning" component={() => <AdminRoute component={AdminPlanning} />} />
+          <Route path="/admin-profile" component={() => <AdminOrEmployeeRoute component={AdminProfile} />} />
           
           <Route>
             {isAuthenticated ? <Redirect to="/" /> : <Redirect to="/login" />}
           </Route>
         </Switch>
 
-        {showBottomNav && <BottomNavigation />}
+        {/* Bottom Navigation - masquée sur desktop */}
+        {showBottomNav && (
+          <div className="lg:hidden">
+            <BottomNavigation />
+          </div>
+        )}
+        </div>
       </div>
     </div>
   );
@@ -104,14 +140,7 @@ function App() {
     return null;
   }
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
+  return <Router />;
 }
 
 export default App;

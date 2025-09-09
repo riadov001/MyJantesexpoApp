@@ -10,7 +10,6 @@ export default function Notifications() {
 
   const { data: notifications, isLoading } = useQuery({
     queryKey: ["/api/notifications"],
-    queryFn: () => apiGet<Notification[]>("/api/notifications"),
   });
 
   const markAsReadMutation = useMutation({

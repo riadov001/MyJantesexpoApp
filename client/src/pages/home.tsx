@@ -3,14 +3,18 @@ import { AuthService } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
 import { useLocation } from "wouter";
 import { Calendar, FileText, User, Wrench } from "lucide-react";
+import logoUrl from "@/assets/logo-myjantes.png";
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const user = AuthService.getUser();
 
-  const { data: recentActivity } = useQuery({
+  const { data: recentActivity } = useQuery<{
+    bookings: any[];
+    quotes: any[];
+    invoices: any[];
+  }>({
     queryKey: ["/api/history"],
-    queryFn: () => apiGet<{ quotes: any[]; invoices: any[] }>("/api/history"),
   });
 
   const formatDate = (dateStr: string) => {
@@ -51,53 +55,79 @@ export default function Home() {
   };
 
   return (
-    <div className="pb-24">
-      {/* Navigation Header */}
-      <div className="px-6 py-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold" data-testid="text-welcome">
-              Bonjour, {user?.name || "Utilisateur"}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Que souhaitez-vous faire aujourd'hui ?
-            </p>
-          </div>
-          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-            <User className="text-white" size={20} />
+    <div className="pb-24 lg:pb-8">
+      {/* Header with Logo - Responsive */}
+      <div className="px-4 xs:px-6 py-4 md:py-6 lg:py-8 border-b border-border">
+        <div className="container mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h2 className="text-lg xs:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold" data-testid="text-welcome">
+                Bonjour, {user?.name || "Utilisateur"}
+              </h2>
+              <p className="text-xs xs:text-sm md:text-base lg:text-lg text-muted-foreground mt-1">
+                Que souhaitez-vous faire aujourd'hui ?
+              </p>
+            </div>
+            <img 
+              src={logoUrl} 
+              alt="MY JANTES" 
+              className="h-10 xs:h-12 sm:h-14 md:h-16 lg:h-18 xl:h-20 w-auto bg-white rounded-lg p-1.5 sm:p-2 shadow-sm flex-shrink-0 ml-4"
+              data-testid="logo-myjantes"
+            />
           </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="px-6 py-6">
-        <h3 className="text-lg font-semibold mb-4">Actions rapides</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            className="ios-card text-center p-6"
-            onClick={() => setLocation("/booking")}
-            data-testid="button-booking"
-          >
-            <Calendar className="text-primary text-2xl mb-3 mx-auto" size={32} />
-            <p className="font-medium">Réserver</p>
-            <p className="text-xs text-muted-foreground mt-1">Nouvelle réservation</p>
-          </button>
-          <button
-            className="ios-card text-center p-6"
-            onClick={() => setLocation("/quote")}
-            data-testid="button-quote"
-          >
-            <FileText className="text-primary text-2xl mb-3 mx-auto" size={32} />
-            <p className="font-medium">Devis</p>
-            <p className="text-xs text-muted-foreground mt-1">Demander un devis</p>
-          </button>
+      {/* Quick Actions - Responsive */}
+      <div className="px-4 xs:px-6 py-6 md:py-8 lg:py-10">
+        <div className="max-w-7xl mx-auto">
+          <h3 className="text-base xs:text-lg md:text-xl lg:text-2xl font-semibold mb-4 md:mb-6 lg:mb-8">Actions rapides</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 xs:gap-4 md:gap-6 lg:gap-8">
+            <button
+              className="ios-card text-center p-4 xs:p-5 sm:p-6 md:p-7 lg:p-8 xl:p-10 hover:scale-105 transition-transform duration-200"
+              onClick={() => setLocation("/booking")}
+              data-testid="button-booking"
+            >
+              <Calendar className="text-primary mb-2 xs:mb-3 mx-auto" size={24} />
+              <p className="font-medium text-sm xs:text-base md:text-lg lg:text-xl">Réserver</p>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 leading-tight">Nouvelle réservation</p>
+            </button>
+            <button
+              className="ios-card text-center p-4 xs:p-5 sm:p-6 md:p-7 lg:p-8 xl:p-10 hover:scale-105 transition-transform duration-200"
+              onClick={() => setLocation("/quote")}
+              data-testid="button-quote"
+            >
+              <FileText className="text-primary mb-2 xs:mb-3 mx-auto" size={24} />
+              <p className="font-medium text-sm xs:text-base md:text-lg lg:text-xl">Devis</p>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 leading-tight">Demander un devis</p>
+            </button>
+            <button
+              className="ios-card text-center p-4 xs:p-5 sm:p-6 md:p-7 lg:p-8 xl:p-10 hover:scale-105 transition-transform duration-200"
+              onClick={() => setLocation("/history")}
+              data-testid="button-history"
+            >
+              <FileText className="text-primary mb-2 xs:mb-3 mx-auto" size={24} />
+              <p className="font-medium text-sm xs:text-base md:text-lg lg:text-xl">Historique</p>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 leading-tight">Mes prestations</p>
+            </button>
+            <button
+              className="ios-card text-center p-4 xs:p-5 sm:p-6 md:p-7 lg:p-8 xl:p-10 hover:scale-105 transition-transform duration-200"
+              onClick={() => setLocation("/profile")}
+              data-testid="button-profile"
+            >
+              <User className="text-primary mb-2 xs:mb-3 mx-auto" size={24} />
+              <p className="font-medium text-sm xs:text-base md:text-lg lg:text-xl">Profil</p>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 leading-tight">Mon compte</p>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="px-6 pb-24">
-        <h3 className="text-lg font-semibold mb-4">Activité récente</h3>
-        <div className="space-y-3">
+      {/* Recent Activity - Responsive */}
+      <div className="px-4 xs:px-6 pb-24 lg:pb-8">
+        <div className="max-w-7xl mx-auto">
+          <h3 className="text-base xs:text-lg md:text-xl lg:text-2xl font-semibold mb-4 md:mb-6 lg:mb-8">Activité récente</h3>
+          <div className="space-y-3 md:space-y-4 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 lg:space-y-0">
           {recentActivity?.quotes?.slice(0, 2).map((quote) => (
             <div key={quote.id} className="ios-card flex items-center space-x-4" data-testid={`card-quote-${quote.id}`}>
               <div className="w-12 h-12 bg-secondary rounded-ios flex items-center justify-center">
@@ -140,6 +170,7 @@ export default function Home() {
               </p>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

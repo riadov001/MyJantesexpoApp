@@ -1,0 +1,154 @@
+# 🚀 Configuration CodeMagic Simplifiée pour MyJantes
+# Configuration optimisée pour débuter rapidement avec des APK de test
+
+workflows:
+  # 🤖 Build Android Simple (Recommandé pour débuter)
+  android-test:
+    name: "Android Test Build"
+    instance_type: mac_mini_m1
+    max_build_duration: 30
+    working_directory: myjantes_app
+    environment:
+      flutter: stable
+      vars:
+        PACKAGE_NAME: "com.myjantes.app"
+    
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+        - pattern: 'develop'  
+          include: true
+    
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          echo "📦 Installation des dépendances Flutter..."
+          flutter packages pub get
+      
+      - name: Build Debug APK
+        script: |
+          echo "🔨 Build APK Debug (non signé pour test)..."
+          flutter build apk --debug
+    
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+    
+    publishing:
+      email:
+        recipients:
+          - rbelmahi90@gmail.com # ⚠️ Remplacer par votre email
+        notify:
+          success: true
+          failure: true
+
+  # 🏭 Build Android Production (APK signé)
+  android-production:
+    name: "Android Production Build"
+    instance_type: mac_mini_m1
+    max_build_duration: 45
+    working_directory: myjantes_app
+    environment:
+      android_signing:
+        - keystore_reference  # Référence au keystore uploadé dans CodeMagic
+      flutter: stable
+      vars:
+        PACKAGE_NAME: "com.myjantes.app"
+    
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*.*.*'
+          include: true
+    
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          echo "📦 Installation des dépendances Flutter..."
+          flutter packages pub get
+      
+      - name: Run tests
+        script: |
+          echo "🧪 Exécution des tests..."
+          flutter test
+        ignore_failure: true
+      
+      - name: Build Release APK
+        script: |
+          echo "🔨 Build APK Release (signé)..."
+          flutter build apk --release
+      
+      - name: Build App Bundle
+        script: |
+          echo "📦 Build App Bundle pour Google Play..."
+          flutter build appbundle --release
+    
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
+    
+    publishing:
+      email:
+        recipients:
+          - rbelmahi90@gmail.com # ⚠️ Remplacer par votre email
+        notify:
+          success: true
+          failure: true
+
+  # 🍎 Build iOS (Optionnel)
+  ios-production:
+    name: "iOS Production Build"  
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    working_directory: myjantes_app
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.myjantes.app
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*.*.*'
+          include: true
+    
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          echo "📦 Installation des dépendances Flutter..."
+          flutter packages pub get
+      
+      - name: Install CocoaPods
+        script: |
+          echo "🍎 Installation des CocoaPods..."
+          cd ios && pod install
+      
+      - name: Build iOS
+        script: |
+          echo "🔨 Build iOS..."
+          flutter build ios --release
+      
+      - name: Build IPA
+        script: |
+          echo "📱 Création de l'IPA..."
+          xcode-project build-ipa \
+            --workspace ios/Runner.xcworkspace \
+            --scheme Runner
+    
+    artifacts:
+      - build/ios/ipa/*.ipa
+    
+    publishing:
+      email:
+        recipients:
+          - rbelmahi90@gmail.com # ⚠️ Remplacer par votre email
+        notify:
+          success: true
+          failure: true

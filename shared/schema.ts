@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, decimal, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, decimal, jsonb, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -9,7 +9,56 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   phone: text("phone"),
+  address: text("address"),
   role: text("role").default("client"), // client, admin, employee
+  clientType: text("client_type").default("particulier"), // particulier, professionnel
+  // Informations société (pour clients professionnels)
+  companyName: text("company_name"),
+  companyAddress: text("company_address"),
+  companySiret: text("company_siret"),
+  companyVat: text("company_vat"),
+  companyApe: text("company_ape"),
+  companyContact: text("company_contact"), // Nom du contact dans l'entreprise
+  // Gestion des congés pour les employés
+  isOnLeave: boolean("is_on_leave").default(false),
+  leaveStartDate: timestamp("leave_start_date"),
+  leaveEndDate: timestamp("leave_end_date"),
+  leaveReason: text("leave_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Groupes d'utilisateurs
+export const userGroups = pgTable("user_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  type: text("type").default("custom"), // predefined, custom, team
+  color: text("color").default("#6B7280"), // Couleur pour l'affichage
+  permissions: jsonb("permissions").default([]), // Permissions spécifiques au groupe
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+});
+
+// Association utilisateurs-groupes (many-to-many)
+export const userGroupMembers = pgTable("user_group_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  groupId: varchar("group_id").references(() => userGroups.id).notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  addedBy: varchar("added_by").references(() => users.id),
+});
+
+// Demandes de congés des employés
+export const leaveRequests = pgTable("leave_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => users.id).notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").default("pending"), // pending, approved, rejected
+  notes: text("notes"), // Notes de l'administrateur
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -26,13 +75,25 @@ export const bookings = pgTable("bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   serviceId: varchar("service_id").references(() => services.id).notNull(),
-  date: text("date").notNull(),
-  timeSlot: text("time_slot").notNull(),
+  // Nouvelles colonnes pour plages horaires libres (optionnelles pour migration progressive)
+  startDateTime: timestamp("start_date_time"),
+  endDateTime: timestamp("end_date_time"),
+  // Anciennes colonnes maintenues pour compatibilité (seront supprimées plus tard)
+  date: text("date"),
+  timeSlot: text("time_slot"),
   vehicleBrand: text("vehicle_brand").notNull(),
   vehiclePlate: text("vehicle_plate").notNull(),
+  // Nouvelles colonnes pour jantes
+  wheelQuantity: integer("wheel_quantity"), // Nombre de jantes (2 ou 4)
+  wheelDiameter: text("wheel_diameter"), // Diamètre en pouces
   notes: text("notes"),
   status: text("status").default("pending"),
+  assignedEmployee: varchar("assigned_employee").references(() => users.id),
+  estimatedDuration: integer("estimated_duration"), // en minutes
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
+  googleCalendarEventId: text("google_calendar_event_id"), // ID de l'événement Google Calendar
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const quotes = pgTable("quotes", {
@@ -43,21 +104,48 @@ export const quotes = pgTable("quotes", {
   vehicleModel: text("vehicle_model").notNull(),
   vehicleYear: text("vehicle_year").notNull(),
   vehicleEngine: text("vehicle_engine"),
+  // Nouvelles colonnes pour jantes
+  wheelQuantity: integer("wheel_quantity"), // Nombre de jantes (2 ou 4)
+  wheelDiameter: text("wheel_diameter"), // Diamètre en pouces
   description: text("description").notNull(),
   photos: jsonb("photos").default([]),
   amount: decimal("amount", { precision: 10, scale: 2 }),
   status: text("status").default("pending"),
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   quoteId: varchar("quote_id").references(() => quotes.id),
+  invoiceNumber: text("invoice_number"), // Numéro de facture auto-généré
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }).default("20.00"),
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description").notNull(),
+  // Détails des articles/services
+  items: jsonb("items").default([]), // Array of {description, quantity, unitPrice, total}
+  // Informations véhicule
+  vehicleBrand: text("vehicle_brand"),
+  vehicleModel: text("vehicle_model"),
+  vehiclePlate: text("vehicle_plate"),
+  vehicleYear: text("vehicle_year"),
+  // Photos et détails du travail
+  photosBefore: jsonb("photos_before").default([]),
+  photosAfter: jsonb("photos_after").default([]),
+  workDetails: text("work_details"),
+  // Conditions de paiement
+  paymentTerms: text("payment_terms").default("Paiement à réception"),
+  dueDate: timestamp("due_date"),
+  // Statut et suivi
   status: text("status").default("unpaid"),
+  emailSent: boolean("email_sent").default(false),
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const notifications = pgTable("notifications", {
@@ -87,12 +175,65 @@ export const adminSettings = pgTable("admin_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   key: text("key").notNull().unique(),
   value: text("value").notNull(),
+  googleCalendarTokens: text("google_calendar_tokens"), // Tokens OAuth Google Calendar
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Table d'audit pour tracer toutes les actions
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // create, update, delete, status_change, email_sent, etc.
+  entityType: text("entity_type").notNull(), // booking, quote, invoice, user, etc.
+  entityId: varchar("entity_id").notNull(),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Ajouter un système d'assignation d'employés aux réservations
+export const bookingAssignments = pgTable("booking_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id).notNull(),
+  employeeId: varchar("employee_id").references(() => users.id).notNull(),
+  assignedBy: varchar("assigned_by").references(() => users.id).notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  notes: text("notes"),
+});
+
+export const timeSlotConfigs = pgTable("time_slot_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: varchar("date").notNull(), // Format: YYYY-MM-DD
+  timeSlot: varchar("time_slot").notNull(), // Format: HH:MM
+  maxCapacity: integer("max_capacity").notNull().default(2), // Nombre max de réservations
+  isActive: boolean("is_active").notNull().default(true),
+  reason: text("reason"), // Raison si désactivé (congé, etc.)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  dateTimeIndex: uniqueIndex("date_time_idx").on(table.date, table.timeSlot),
+}));
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+});
+
+// Schéma pour la mise à jour des utilisateurs par l'admin (sans mot de passe)
+export const updateUserAdminSchema = createInsertSchema(users).omit({
+  id: true,
+  password: true,
+  createdAt: true,
+}).refine((data) => {
+  if (data.clientType === "professionnel") {
+    return data.companyName && data.companyName.length > 0;
+  }
+  return true;
+}, {
+  message: "Nom de l'entreprise requis pour les clients professionnels",
+  path: ["companyName"],
 });
 
 export const insertServiceSchema = createInsertSchema(services).omit({
@@ -103,6 +244,21 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
   userId: true,
   createdAt: true,
+  updatedAt: true,
+  lastModifiedBy: true,
+  googleCalendarEventId: true,
+  // Omettre les anciennes colonnes de compatibilité
+  date: true,
+  timeSlot: true,
+}).extend({
+  // Validation personnalisée pour les nouvelles colonnes - convertir en Date
+  startDateTime: z.string().min(1, "Heure de début requise").transform(str => new Date(str)),
+  endDateTime: z.string().min(1, "Heure de fin requise").transform(str => new Date(str)),
+}).refine((data) => {
+  return data.startDateTime < data.endDateTime;
+}, {
+  message: "L'heure de fin doit être après l'heure de début",
+  path: ["endDateTime"],
 });
 
 export const insertQuoteSchema = createInsertSchema(quotes).omit({
@@ -131,13 +287,90 @@ export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit(
   updatedAt: true,
 });
 
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBookingAssignmentSchema = createInsertSchema(bookingAssignments).omit({
+  id: true,
+  assignedAt: true,
+});
+
+export const insertTimeSlotConfigSchema = createInsertSchema(timeSlotConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Email invalide"),
   password: z.string().min(6, "Le mot de passe doit faire au moins 6 caractères"),
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Mot de passe actuel requis"),
+  newPassword: z.string().min(6, "Le nouveau mot de passe doit faire au moins 6 caractères"),
+  confirmPassword: z.string().min(6, "Confirmation requise"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Les mots de passe ne correspondent pas",
+  path: ["confirmPassword"],
+});
+
+export const updateClientProfileSchema = z.object({
+  name: z.string().min(1, "Nom requis"),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  clientType: z.enum(["particulier", "professionnel"]),
+  // Champs société (optionnels, requis seulement si professionnel)
+  companyName: z.string().optional(),
+  companyAddress: z.string().optional(),
+  companySiret: z.string().optional(),
+  companyVat: z.string().optional(),
+  companyApe: z.string().optional(),
+  companyContact: z.string().optional(),
+}).refine((data) => {
+  if (data.clientType === "professionnel") {
+    return data.companyName && data.companyName.length > 0;
+  }
+  return true;
+}, {
+  message: "Nom de l'entreprise requis pour les clients professionnels",
+  path: ["companyName"],
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+// User Groups
+export const insertUserGroupSchema = createInsertSchema(userGroups);
+export type UserGroup = typeof userGroups.$inferSelect;
+export type InsertUserGroup = z.infer<typeof insertUserGroupSchema>;
+
+export const insertUserGroupMemberSchema = createInsertSchema(userGroupMembers);
+export type UserGroupMember = typeof userGroupMembers.$inferSelect;
+export type InsertUserGroupMember = z.infer<typeof insertUserGroupMemberSchema>;
+
+// Leave Requests - schéma simplifié pour éviter la transformation côté serveur
+export const insertLeaveRequestSchema = createInsertSchema(leaveRequests).omit({
+  id: true,
+  createdAt: true,
+  approvedBy: true,
+  approvedAt: true,
+  employeeId: true, // Sera ajouté côté serveur
+}).extend({
+  // Recevoir des strings ISO et les transformer en Date
+  startDate: z.string().min(1, "Date de début requise").transform(str => new Date(str)),
+  endDate: z.string().min(1, "Date de fin requise").transform(str => new Date(str)),
+}).refine((data) => {
+  return data.startDate < data.endDate;
+}, {
+  message: "La date de fin doit être après la date de début",
+  path: ["endDate"],
+});
+
+export type LeaveRequest = typeof leaveRequests.$inferSelect;
+export type InsertLeaveRequest = z.infer<typeof insertLeaveRequestSchema>;
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type Booking = typeof bookings.$inferSelect;
@@ -152,4 +385,12 @@ export type WorkProgress = typeof workProgress.$inferSelect;
 export type InsertWorkProgress = z.infer<typeof insertWorkProgressSchema>;
 export type AdminSettings = typeof adminSettings.$inferSelect;
 export type InsertAdminSettings = z.infer<typeof insertAdminSettingsSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type BookingAssignment = typeof bookingAssignments.$inferSelect;
+export type InsertBookingAssignment = z.infer<typeof insertBookingAssignmentSchema>;
+export type TimeSlotConfig = typeof timeSlotConfigs.$inferSelect;
+export type InsertTimeSlotConfig = z.infer<typeof insertTimeSlotConfigSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
+export type ChangePasswordData = z.infer<typeof changePasswordSchema>;
+export type UpdateClientProfileData = z.infer<typeof updateClientProfileSchema>;

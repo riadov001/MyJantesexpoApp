@@ -30,30 +30,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
+    const token = localStorage.getItem("myjantes_token");
+    const savedUser = localStorage.getItem("myjantes_user");
     
     if (token && savedUser) {
       try {
         const userData = JSON.parse(savedUser);
         setUser(userData);
         // Verify token is still valid by making a test request
-        apiGet("/api/user")
+        apiGet("/api/auth/me")
           .then((freshUserData: unknown) => {
             const userData = freshUserData as User;
             setUser(userData);
-            localStorage.setItem("user", JSON.stringify(userData));
+            localStorage.setItem("myjantes_user", JSON.stringify(userData));
+            setIsLoading(false);
           })
           .catch(() => {
             // Token is invalid, clear storage
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
+            localStorage.removeItem("myjantes_token");
+            localStorage.removeItem("myjantes_user");
             setUser(null);
-          })
-          .finally(() => setIsLoading(false));
+            setIsLoading(false);
+          });
       } catch (error) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        localStorage.removeItem("myjantes_token");
+        localStorage.removeItem("myjantes_user");
         setUser(null);
         setIsLoading(false);
       }
@@ -63,20 +64,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const login = (token: string, userData: User) => {
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("myjantes_token", token);
+    localStorage.setItem("myjantes_user", JSON.stringify(userData));
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.removeItem("myjantes_token");
+    localStorage.removeItem("myjantes_user");
     setUser(null);
   };
 
   const updateUser = (userData: User) => {
     setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("myjantes_user", JSON.stringify(userData));
   };
 
   const contextValue: AuthContextType = {

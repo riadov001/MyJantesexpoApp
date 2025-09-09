@@ -1,23 +1,23 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, downloadFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Calendar, Clock, Settings, CheckCircle, XCircle } from "lucide-react";
 
 type HistoryData = {
+  bookings: any[];
   quotes: any[];
   invoices: any[];
 };
 
 export default function History() {
-  const [activeTab, setActiveTab] = useState<"quotes" | "invoices">("quotes");
+  const [activeTab, setActiveTab] = useState<"bookings" | "quotes" | "invoices">("bookings");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: history, isLoading } = useQuery({
+  const { data: history, isLoading } = useQuery<HistoryData>({
     queryKey: ["/api/history"],
-    queryFn: () => apiGet<HistoryData>("/api/history"),
   });
 
   const acceptQuoteMutation = useMutation({
@@ -105,12 +105,23 @@ export default function History() {
     <div className="pb-24">
       <div className="px-6 py-4 border-b border-border">
         <h2 className="text-xl font-bold">Historique</h2>
-        <p className="text-sm text-muted-foreground">Vos devis et factures</p>
+        <p className="text-sm text-muted-foreground">Vos prestations, devis et factures</p>
       </div>
 
       {/* Segment Control */}
       <div className="px-6 py-4">
         <div className="flex bg-secondary rounded-ios p-1">
+          <button
+            className={`flex-1 py-2 text-center rounded-ios transition-all ${
+              activeTab === "bookings"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => setActiveTab("bookings")}
+            data-testid="tab-bookings"
+          >
+            Prestations
+          </button>
           <button
             className={`flex-1 py-2 text-center rounded-ios transition-all ${
               activeTab === "quotes"
@@ -138,6 +149,57 @@ export default function History() {
 
       {/* Content */}
       <div className="px-6 space-y-4">
+        {activeTab === "bookings" && (
+          <div className="space-y-4">
+            {history?.bookings?.map((booking) => (
+              <div key={booking.id} className="ios-card" data-testid={`card-booking-${booking.id}`}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    <div>
+                      <h3 className="font-semibold" data-testid={`text-booking-service-${booking.id}`}>
+                        {booking.service?.name || "Service"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground" data-testid={`text-booking-vehicle-${booking.id}`}>
+                        {booking.vehicleBrand}
+                        {booking.wheelQuantity && ` • ${booking.wheelQuantity} jantes`}
+                        {booking.wheelDiameter && ` • ${booking.wheelDiameter} pouces`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(booking.status)}`}>
+                    {getStatusText(booking.status)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm mb-4">
+                  <div>
+                    <div className="flex items-center space-x-1 text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      <span data-testid={`text-booking-dates-${booking.id}`}>
+                        {formatDate(booking.startDateTime || booking.createdAt)}
+                        {booking.endDateTime && booking.startDateTime !== booking.endDateTime && 
+                          ` - ${formatDate(booking.endDateTime)}`
+                        }
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Plaque: {booking.vehiclePlate}
+                  {booking.notes && ` • ${booking.notes}`}
+                </div>
+              </div>
+            ))}
+
+            {!history?.bookings?.length && (
+              <div className="ios-card text-center py-8">
+                <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Aucune prestation trouvée</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "quotes" && (
           <div className="space-y-4">
             {history?.quotes?.map((quote) => (
@@ -168,7 +230,7 @@ export default function History() {
                 {quote.status === "pending" && quote.amount && (
                   <div className="flex space-x-2">
                     <Button
-                      className="ios-button flex-1 text-sm py-2"
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-1 text-sm py-2 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-95"
                       onClick={() => acceptQuoteMutation.mutate(quote.id)}
                       disabled={acceptQuoteMutation.isPending}
                       data-testid={`button-accept-quote-${quote.id}`}
@@ -177,7 +239,8 @@ export default function History() {
                     </Button>
                     <Button
                       variant="outline"
-                      className="px-4 py-2 text-sm"
+                      className="px-4 py-2 text-sm rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
+                      onClick={() => window.open(`/api/admin/quotes/${quote.id}/preview`, '_blank')}
                       data-testid={`button-quote-details-${quote.id}`}
                     >
                       Détails
@@ -187,7 +250,8 @@ export default function History() {
                 {quote.status !== "pending" && (
                   <Button
                     variant="outline"
-                    className="w-full px-4 py-2 text-sm"
+                    className="w-full px-4 py-2 text-sm rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
+                    onClick={() => window.open(`/api/admin/quotes/${quote.id}/preview`, '_blank')}
                     data-testid={`button-quote-details-${quote.id}`}
                   >
                     Voir les détails
@@ -232,7 +296,7 @@ export default function History() {
                 {invoice.status === "unpaid" && (
                   <div className="flex space-x-2">
                     <Button
-                      className="ios-button flex-1 text-sm py-2"
+                      className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white flex-1 text-sm py-2 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 active:scale-95"
                       onClick={() => markAsPaidMutation.mutate(invoice.id)}
                       disabled={markAsPaidMutation.isPending}
                       data-testid={`button-mark-paid-${invoice.id}`}
@@ -241,7 +305,7 @@ export default function History() {
                     </Button>
                     <Button
                       variant="outline"
-                      className="px-4 py-2 text-sm"
+                      className="px-4 py-2 text-sm rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
                       data-testid={`button-invoice-pdf-${invoice.id}`}
                     >
                       PDF
@@ -251,7 +315,7 @@ export default function History() {
                 {invoice.status === "paid" && (
                   <Button
                     variant="outline"
-                    className="w-full px-4 py-2 text-sm"
+                    className="w-full px-4 py-2 text-sm rounded-lg font-medium border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md"
                     data-testid={`button-invoice-pdf-${invoice.id}`}
                   >
                     Télécharger PDF

@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import { Card } from "@/components/ui/card";
-import { BarChart3, Users, FileText, DollarSign, Clock, AlertCircle } from "lucide-react";
+import { Link } from "wouter";
+import { BarChart3, Users, FileText, DollarSign, Clock, AlertCircle, Calendar, Plane } from "lucide-react";
 
 interface DashboardStats {
   totalBookings: number;
@@ -16,7 +17,6 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/admin/dashboard"],
-    queryFn: () => apiGet<DashboardStats>("/api/admin/dashboard"),
   });
 
   const formatCurrency = (amount: number) => {
@@ -119,7 +119,8 @@ export default function AdminDashboard() {
         <div className="ios-card">
           <h3 className="font-semibold mb-4">Actions rapides</h3>
           <div className="space-y-3">
-            <button 
+<Link 
+              href="/admin/bookings"
               className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
               data-testid="button-manage-bookings"
             >
@@ -132,9 +133,21 @@ export default function AdminDashboard() {
                   {stats?.pendingBookings}
                 </span>
               )}
-            </button>
+            </Link>
+
+            <Link
+              href="/admin/calendar"
+              className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
+              data-testid="button-admin-calendar"
+            >
+              <div className="flex items-center space-x-3">
+                <Calendar className="text-primary" size={20} />
+                <span>Planning & Assignations</span>
+              </div>
+            </Link>
             
-            <button 
+            <Link
+              href="/admin/quotes" 
               className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
               data-testid="button-manage-quotes"
             >
@@ -147,9 +160,10 @@ export default function AdminDashboard() {
                   {stats?.pendingQuotes}
                 </span>
               )}
-            </button>
+            </Link>
             
-            <button 
+            <Link
+              href="/admin/invoices"
               className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
               data-testid="button-manage-invoices"
             >
@@ -162,7 +176,29 @@ export default function AdminDashboard() {
                   {stats?.unpaidInvoices}
                 </span>
               )}
-            </button>
+            </Link>
+            
+            <Link
+              href="/admin/users"
+              className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
+              data-testid="button-manage-users"
+            >
+              <div className="flex items-center space-x-3">
+                <Users className="text-primary" size={20} />
+                <span>Gérer les utilisateurs</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/admin/leaves"
+              className="w-full flex items-center justify-between p-3 hover:bg-secondary rounded-ios transition-colors"
+              data-testid="button-manage-leaves"
+            >
+              <div className="flex items-center space-x-3">
+                <Plane className="text-primary" size={20} />
+                <span>Gestion des congés</span>
+              </div>
+            </Link>
           </div>
         </div>
 

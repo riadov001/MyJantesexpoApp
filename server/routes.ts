@@ -1,9 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertNotificationSchema, insertWorkProgressSchema, loginSchema } from "@shared/schema";
+import { insertUserSchema, insertBookingSchema, insertQuoteSchema, insertInvoiceSchema, insertNotificationSchema, insertWorkProgressSchema, insertBookingAssignmentSchema, loginSchema, changePasswordSchema, updateClientProfileSchema, updateUserAdminSchema, insertLeaveRequestSchema } from "@shared/schema";
+import { z } from "zod";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
+import { PDFGenerator } from './pdfGenerator';
+import { EmailService } from './emailService';
 
 const JWT_SECRET = process.env.JWT_SECRET || "myjantes-secret-key";
 
@@ -38,6 +43,18 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   }
 };
 
+const requireAdminOrEmployee = async (req: any, res: any, next: any) => {
+  try {
+    const user = await storage.getUser(req.user.userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'employee')) {
+      return res.status(403).json({ message: 'Accès administrateur ou employé requis' });
+    }
+    next();
+  } catch (error) {
+    return res.status(500).json({ message: 'Erreur de vérification des permissions' });
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
@@ -54,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Email ou mot de passe incorrect" });
       }
 
-      const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+      const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
       
       res.json({ 
         token, 
@@ -62,7 +79,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id, 
           email: user.email, 
           name: user.name, 
-          phone: user.phone 
+          phone: user.phone,
+          role: user.role
         } 
       });
     } catch (error) {
@@ -87,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword 
       });
 
-      const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+      const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
       
       res.status(201).json({ 
         token, 
@@ -114,9 +132,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id, 
         email: user.email, 
         name: user.name, 
-        phone: user.phone 
+        phone: user.phone,
+        address: user.address,
+        role: user.role,
+        clientType: user.clientType,
+        companyName: user.companyName,
+        companyAddress: user.companyAddress,
+        companySiret: user.companySiret,
+        companyVat: user.companyVat,
+        companyApe: user.companyApe,
+        companyContact: user.companyContact
       });
     } catch (error) {
+      res.status(500).json({ message: "Erreur serveur" });
+    }
+  });
+
+  // Route pour modifier le mot de passe
+  app.post("/api/auth/change-password", authenticateToken, async (req: any, res) => {
+    try {
+      const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+      
+      const user = await storage.getUser(req.user.userId);
+      if (!user) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      // Vérifier l'ancien mot de passe
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ message: "Mot de passe actuel incorrect" });
+      }
+
+      // Hash le nouveau mot de passe
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      
+      // Mettre à jour le mot de passe
+      await storage.updateUserPassword(req.user.userId, hashedNewPassword);
+
+      res.json({ message: "Mot de passe modifié avec succès" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erreur serveur" });
+    }
+  });
+
+  // Route pour mettre à jour le profil client
+  app.put("/api/auth/profile", authenticateToken, async (req: any, res) => {
+    try {
+      const profileData = updateClientProfileSchema.parse(req.body);
+      
+      const updatedUser = await storage.updateUserProfile(req.user.userId, profileData);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      res.json({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        clientType: updatedUser.clientType,
+        companyName: updatedUser.companyName,
+        companyAddress: updatedUser.companyAddress,
+        companySiret: updatedUser.companySiret,
+        companyVat: updatedUser.companyVat,
+        companyApe: updatedUser.companyApe,
+        companyContact: updatedUser.companyContact
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      }
       res.status(500).json({ message: "Erreur serveur" });
     }
   });
@@ -156,13 +246,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bookings", authenticateToken, async (req: any, res) => {
     try {
       const bookingData = insertBookingSchema.parse(req.body);
-      const booking = await storage.createBooking({
+      
+      // Convertir manuellement les dates si nécessaire
+      const bookingToCreate = {
         ...bookingData,
         userId: req.user.userId,
-      });
+        startDateTime: bookingData.startDateTime instanceof Date ? bookingData.startDateTime : new Date(bookingData.startDateTime),
+        endDateTime: bookingData.endDateTime instanceof Date ? bookingData.endDateTime : new Date(bookingData.endDateTime),
+      };
+      
+      const booking = await storage.createBooking(bookingToCreate);
       res.status(201).json(booking);
-    } catch (error) {
-      res.status(400).json({ message: "Données de réservation invalides" });
+    } catch (error: any) {
+      if (error.errors) {
+        res.status(400).json({ message: "Données de réservation invalides", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Données de réservation invalides", error: error.message });
+      }
     }
   });
 
@@ -242,12 +342,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // History route (combines quotes and invoices)
   app.get("/api/history", authenticateToken, async (req: any, res) => {
     try {
-      const [quotes, invoices] = await Promise.all([
+      const [bookings, quotes, invoices] = await Promise.all([
+        storage.getUserBookings(req.user.userId),
         storage.getUserQuotes(req.user.userId),
         storage.getUserInvoices(req.user.userId),
       ]);
 
       res.json({
+        bookings: bookings.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()),
         quotes: quotes.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()),
         invoices: invoices.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()),
       });
@@ -333,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/bookings/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const { status } = req.body;
-      const booking = await storage.updateBookingStatus(req.params.id, status);
+      const booking = await storage.updateBookingWithTracking(req.params.id, status, req.user.userId);
       
       // Create notification for user
       if (booking) {
@@ -357,6 +459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotes = await storage.getAllQuotes();
       res.json(quotes);
     } catch (error) {
+      console.error("Get quotes error:", error);
       res.status(500).json({ message: "Erreur lors de la récupération des devis" });
     }
   });
@@ -364,7 +467,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/quotes/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const { status, amount } = req.body;
-      const quote = await storage.updateQuoteStatus(req.params.id, status, amount);
+      const updateData = { status, ...(amount && { amount }) };
+      const quote = await storage.updateQuoteWithTracking(req.params.id, updateData, req.user.userId);
       
       // Create notification for user
       if (quote) {
@@ -386,9 +490,380 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/invoices", authenticateToken, requireAdmin, async (req: any, res) => {
     try {
       const invoices = await storage.getAllInvoices();
+      console.log(`Retrieved ${invoices.length} invoices for admin dashboard`);
       res.json(invoices);
     } catch (error) {
+      console.error("Get invoices error:", error);
       res.status(500).json({ message: "Erreur lors de la récupération des factures" });
+    }
+  });
+
+  app.post("/api/admin/invoices", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoiceData = {
+        userId: req.body.userId,
+        amount: req.body.amount,
+        description: req.body.description,
+        quoteId: req.body.quoteId || null,
+      };
+      
+      const validatedData = insertInvoiceSchema.parse(invoiceData);
+      const invoice = await storage.createInvoice(validatedData);
+      
+      // Create notification for user
+      await storage.createNotification({
+        userId: invoice.userId,
+        title: "Nouvelle facture",
+        message: `Une facture de ${invoice.amount}€ a été créée`,
+        type: "invoice",
+        relatedId: invoice.id,
+      });
+      
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données de facture invalides", errors: error.errors });
+      }
+      res.status(400).json({ message: "Erreur lors de la création de la facture" });
+    }
+  });
+
+  app.post("/api/admin/invoices/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoice = await storage.updateInvoice(req.params.id, req.body);
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la modification de la facture" });
+    }
+  });
+
+  app.post("/api/admin/invoices/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { status } = req.body;
+      const invoice = await storage.updateInvoiceWithTracking(req.params.id, { status }, req.user.userId);
+      
+      // Create notification for user
+      if (invoice) {
+        await storage.createNotification({
+          userId: invoice.userId,
+          title: "Statut de facture mis à jour",
+          message: `Votre facture est maintenant : ${status}`,
+          type: "invoice",
+          relatedId: invoice.id,
+        });
+      }
+      
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
+    }
+  });
+
+  app.delete("/api/admin/invoices/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      await storage.deleteInvoice(req.params.id);
+      res.json({ message: "Facture supprimée avec succès" });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la suppression de la facture" });
+    }
+  });
+
+  app.post("/api/admin/invoices/:id/notify", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { comment } = req.body;
+      const invoice = await storage.getInvoice(req.params.id);
+      
+      if (invoice) {
+        await storage.createNotification({
+          userId: invoice.userId,
+          title: "Message administrateur",
+          message: comment || "L'administrateur a envoyé un message concernant votre facture",
+          type: "invoice",
+          relatedId: invoice.id,
+        });
+      }
+      
+      res.json({ message: "Notification envoyée avec succès" });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de l'envoi de la notification" });
+    }
+  });
+
+  // Notify client about booking
+  app.post("/api/admin/bookings/:id/notify", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { comment } = req.body;
+      const booking = await storage.getBooking(req.params.id);
+      
+      if (booking) {
+        await storage.createNotification({
+          userId: booking.userId,
+          title: "Message administrateur",
+          message: comment || "L'administrateur a envoyé un message concernant votre réservation",
+          type: "booking",
+          relatedId: booking.id,
+        });
+      }
+      
+      res.json({ message: "Notification envoyée avec succès" });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de l'envoi de la notification" });
+    }
+  });
+
+  app.get("/api/admin/users", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des utilisateurs" });
+    }
+  });
+
+  app.post("/api/admin/users", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Un utilisateur avec cet email existe déjà" });
+      }
+
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const user = await storage.createUser({
+        ...userData,
+        password: hashedPassword,
+      });
+      
+      res.status(201).json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        createdAt: user.createdAt,
+      });
+    } catch (error) {
+      res.status(400).json({ message: "Erreur lors de la création de l'utilisateur" });
+    }
+  });
+
+  // PUT endpoint for updating users
+  app.put("/api/admin/users/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      const userData = updateUserAdminSchema.parse(req.body);
+      
+      // Check if user exists
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      // Check if email is being changed and if it already exists
+      if (userData.email && userData.email !== existingUser.email) {
+        const userWithEmail = await storage.getUserByEmail(userData.email);
+        if (userWithEmail) {
+          return res.status(400).json({ message: "Un utilisateur avec cet email existe déjà" });
+        }
+      }
+
+      const updatedUser = await storage.updateUser(userId, userData);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+      
+      res.json({
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        role: updatedUser.role,
+        clientType: updatedUser.clientType,
+        companyName: updatedUser.companyName,
+        companyAddress: updatedUser.companyAddress,
+        companySiret: updatedUser.companySiret,
+        companyVat: updatedUser.companyVat,
+        companyApe: updatedUser.companyApe,
+        companyContact: updatedUser.companyContact,
+        createdAt: updatedUser.createdAt,
+      });
+    } catch (error: any) {
+      console.error("Update user error:", error);
+      res.status(400).json({ message: error.message || "Erreur lors de la mise à jour de l'utilisateur" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      const currentUserId = req.user.userId;
+      
+      // Prevent admin from deleting themselves
+      if (userId === currentUserId) {
+        return res.status(400).json({ message: "Vous ne pouvez pas vous supprimer vous-même" });
+      }
+      
+      await storage.deleteUser(userId);
+      res.json({ message: "Utilisateur supprimé avec succès" });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la suppression de l'utilisateur" });
+    }
+  });
+
+  // Leave Requests routes
+  app.get("/api/admin/leave-requests", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const leaveRequests = await storage.getLeaveRequests();
+      res.json(leaveRequests);
+    } catch (error) {
+      console.error("Get leave requests error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des demandes de congés" });
+    }
+  });
+
+  app.get("/api/admin/leave-requests/:id", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const leaveRequest = await storage.getLeaveRequest(req.params.id);
+      if (!leaveRequest) {
+        return res.status(404).json({ message: "Demande de congés non trouvée" });
+      }
+      res.json(leaveRequest);
+    } catch (error) {
+      console.error("Get leave request error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération de la demande de congés" });
+    }
+  });
+
+  // Endpoint pour les employés/admins pour créer leurs propres demandes
+  app.post("/api/leave-requests", authenticateToken, async (req: any, res) => {
+    try {
+      const leaveData = insertLeaveRequestSchema.parse(req.body);
+      const leaveRequest = await storage.createLeaveRequest({
+        ...leaveData,
+        employeeId: req.user.userId, // L'employé connecté fait la demande
+      });
+      res.status(201).json(leaveRequest);
+    } catch (error) {
+      console.error("Create leave request error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erreur lors de la création de la demande de congés" });
+    }
+  });
+
+  // Endpoint admin pour créer des demandes pour d'autres employés
+  app.post("/api/admin/leave-requests", authenticateToken, requireAdminOrEmployee, async (req: any, res) => {
+    try {
+      const leaveData = insertLeaveRequestSchema.parse(req.body);
+      const leaveRequest = await storage.createLeaveRequest({
+        ...leaveData,
+        employeeId: leaveData.employeeId || req.user.userId, // Utiliser employeeId fourni ou celui connecté
+      });
+      res.status(201).json(leaveRequest);
+    } catch (error) {
+      console.error("Create leave request error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erreur lors de la création de la demande de congés" });
+    }
+  });
+
+  app.put("/api/admin/leave-requests/:id/status", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { status, notes } = req.body;
+      
+      if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Statut invalide. Doit être 'approved' ou 'rejected'" });
+      }
+
+      const updatedLeaveRequest = await storage.updateLeaveRequestStatus(
+        req.params.id, 
+        status, 
+        req.user.userId, // Admin qui approuve
+        notes
+      );
+
+      if (!updatedLeaveRequest) {
+        return res.status(404).json({ message: "Demande de congés non trouvée" });
+      }
+
+      // Créer une notification pour l'employé
+      await storage.createNotification({
+        userId: updatedLeaveRequest.employeeId,
+        title: `Demande de congés ${status === 'approved' ? 'approuvée' : 'refusée'}`,
+        message: `Votre demande de congés du ${new Date(updatedLeaveRequest.startDate).toLocaleDateString('fr-FR')} au ${new Date(updatedLeaveRequest.endDate).toLocaleDateString('fr-FR')} a été ${status === 'approved' ? 'approuvée' : 'refusée'}`,
+        type: "leave",
+        relatedId: updatedLeaveRequest.id,
+      });
+
+      res.json(updatedLeaveRequest);
+    } catch (error) {
+      console.error("Update leave request status error:", error);
+      res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
+    }
+  });
+
+  // Employee leave requests (for employees to view their own requests)
+  app.get("/api/leave-requests", authenticateToken, async (req: any, res) => {
+    try {
+      const userLeaveRequests = await storage.getLeaveRequests(req.user.userId);
+      res.json(userLeaveRequests);
+    } catch (error) {
+      console.error("Get employee leave requests error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération de vos demandes de congés" });
+    }
+  });
+
+  // Admin: Get all leave requests
+  app.get("/api/admin/leave-requests", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const allLeaveRequests = await storage.getLeaveRequests(); // Sans employeeId = toutes les demandes
+      res.json(allLeaveRequests);
+    } catch (error) {
+      console.error("Get all leave requests error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des demandes de congés" });
+    }
+  });
+
+  // Dashboard stats
+  app.get("/api/admin/dashboard", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const bookings = await storage.getAllBookings();
+      const quotes = await storage.getAllQuotes();
+      const invoices = await storage.getAllInvoices();
+      
+      const stats = {
+        totalBookings: bookings.length,
+        pendingBookings: bookings.filter(b => b.status === "pending").length,
+        totalQuotes: quotes.length,
+        pendingQuotes: quotes.filter(q => q.status === "pending").length,
+        totalInvoices: invoices.length,
+        unpaidInvoices: invoices.filter(i => i.status === "unpaid").length,
+        totalRevenue: invoices
+          .filter(i => i.status === "paid")
+          .reduce((sum, i) => sum + parseFloat(i.amount || "0"), 0)
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Dashboard stats error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des statistiques" });
+    }
+  });
+
+  // Work progress routes  
+  app.get("/api/admin/work-progress", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const progress = await storage.getAllWorkProgress();
+      res.json(progress);
+    } catch (error) {
+      console.error("Work progress error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération du suivi des travaux" });
     }
   });
 
@@ -413,6 +888,707 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(progress);
     } catch (error) {
       res.status(400).json({ message: "Données de suivi invalides" });
+    }
+  });
+
+  // Audit Logs Routes
+  app.get("/api/admin/audit-logs", authenticateToken, requireAdminOrEmployee, async (req: any, res) => {
+    try {
+      const { userId, entityType, entityId } = req.query;
+      const logs = await storage.getAuditLogs(entityType, entityId);
+      
+      // Filter by user if requested and not admin
+      const user = await storage.getUser(req.user.userId);
+      if (userId && user?.role !== "admin") {
+        // Only allow employees to see their own logs
+        const filteredLogs = logs.filter(log => log.userId === req.user.userId);
+        res.json(filteredLogs);
+      } else {
+        res.json(logs);
+      }
+    } catch (error) {
+      console.error("Get audit logs error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des logs" });
+    }
+  });
+
+  // Employee Assignment Routes
+  app.post("/api/admin/assign-employee", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const assignmentData = insertBookingAssignmentSchema.parse(req.body);
+      const assignment = await storage.assignEmployeeToBooking({
+        ...assignmentData,
+        assignedBy: req.user.userId,
+      });
+
+      // Create audit log
+      await storage.createAuditLog({
+        userId: req.user.userId,
+        action: "assign_employee",
+        entityType: "booking",
+        entityId: assignmentData.bookingId,
+        newValues: { employeeId: assignmentData.employeeId, notes: assignmentData.notes }
+      });
+
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Assign employee error:", error);
+      res.status(400).json({ message: "Erreur lors de l'assignation" });
+    }
+  });
+
+  app.get("/api/admin/employee-assignments/:employeeId", authenticateToken, requireAdminOrEmployee, async (req: any, res) => {
+    try {
+      const { employeeId } = req.params;
+      
+      // Check if user can access this data
+      const user = await storage.getUser(req.user.userId);
+      if (user?.role !== "admin" && req.user.userId !== employeeId) {
+        return res.status(403).json({ message: "Accès non autorisé" });
+      }
+
+      const assignments = await storage.getEmployeeAssignments(employeeId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Get employee assignments error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des assignations" });
+    }
+  });
+
+  // Employee Management Routes
+  app.get("/api/admin/employees", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const employees = await storage.getEmployees();
+      res.json(employees);
+    } catch (error) {
+      console.error("Get employees error:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des employés" });
+    }
+  });
+
+  // Object storage routes
+  app.get("/public-objects/:filePath(*)", async (req, res) => {
+    const filePath = req.params.filePath;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const file = await objectStorageService.searchPublicObject(filePath);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      objectStorageService.downloadObject(file, res);
+    } catch (error) {
+      console.error("Error searching for public object:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/objects/:objectPath(*)", authenticateToken, async (req: any, res) => {
+    const userId = req.user?.id;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  app.post("/api/objects/upload", authenticateToken, async (req: any, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Route pour aperçu HTML d'une facture
+  app.get("/api/invoices/:id/preview", authenticateToken, async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      const invoiceWithUser = { ...invoice, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const htmlContent = pdfGenerator.getInvoicePreviewHTML(invoiceWithUser);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(htmlContent);
+    } catch (error) {
+      console.error("Error generating invoice preview:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'aperçu de la facture" });
+    }
+  });
+
+  // PDF generation routes - avec authentification
+  app.get("/api/invoices/:id/pdf", authenticateToken, async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      const invoiceWithUser = { ...invoice, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateInvoicePDF(invoiceWithUser);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="facture-${invoice.id.substring(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.end(pdfBuffer, 'binary');
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Erreur lors de la génération du PDF" });
+    }
+  });
+
+  // Route pour aperçu HTML d'un devis
+  app.get("/api/quotes/:id/preview", authenticateToken, async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      const user = await storage.getUser(quote.userId);
+      const quoteWithUser = { ...quote, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const htmlContent = pdfGenerator.getQuotePreviewHTML(quoteWithUser);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(htmlContent);
+    } catch (error) {
+      console.error("Error generating quote preview:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'aperçu du devis" });
+    }
+  });
+
+  // Route pour génération PDF de devis
+  app.get("/api/quotes/:id/pdf", authenticateToken, async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      const user = await storage.getUser(quote.userId);
+      const quoteWithUser = { ...quote, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateQuotePDF(quoteWithUser);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="devis-${quote.id.substring(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.end(pdfBuffer, 'binary');
+    } catch (error) {
+      console.error("Error generating quote PDF:", error);
+      res.status(500).json({ message: "Erreur lors de la génération du PDF du devis" });
+    }
+  });
+
+  // ===== ENDPOINTS ADMIN SANS AUTHENTIFICATION JWT =====
+  
+  // Admin: Route pour aperçu HTML d'une facture (sans auth JWT)
+  app.get("/api/admin/invoices/:id/preview", async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      const invoiceWithUser = { ...invoice, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const htmlContent = pdfGenerator.getInvoicePreviewHTML(invoiceWithUser);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(htmlContent);
+    } catch (error) {
+      console.error("Error generating invoice preview:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'aperçu de la facture" });
+    }
+  });
+
+  // Admin: Route pour génération PDF d'une facture (sans auth JWT)
+  app.get("/api/admin/invoices/:id/pdf", async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      const invoiceWithUser = { ...invoice, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateInvoicePDF(invoiceWithUser);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="facture-${invoice.id.substring(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.end(pdfBuffer, 'binary');
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Erreur lors de la génération du PDF" });
+    }
+  });
+
+  // Admin: Route pour aperçu HTML d'un devis (sans auth JWT)
+  app.get("/api/admin/quotes/:id/preview", async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      const user = await storage.getUser(quote.userId);
+      const quoteWithUser = { ...quote, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const htmlContent = pdfGenerator.getQuotePreviewHTML(quoteWithUser);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(htmlContent);
+    } catch (error) {
+      console.error("Error generating quote preview:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'aperçu du devis" });
+    }
+  });
+
+  // Admin: Route pour génération PDF de devis (sans auth JWT)
+  app.get("/api/admin/quotes/:id/pdf", async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      const user = await storage.getUser(quote.userId);
+      const quoteWithUser = { ...quote, user };
+
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateQuotePDF(quoteWithUser);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="devis-${quote.id.substring(0, 8)}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.end(pdfBuffer, 'binary');
+    } catch (error) {
+      console.error("Error generating quote PDF:", error);
+      res.status(500).json({ message: "Erreur lors de la génération du PDF" });
+    }
+  });
+
+  // Send invoice by email
+  app.get("/api/admin/invoices/:id/mobile-email-data", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      if (!user || !user.email) {
+        return res.status(400).json({ message: "Email du client non disponible" });
+      }
+
+      // Return the data needed for mobile email
+      res.json({
+        clientEmail: user.email,
+        clientName: user.name,
+        description: invoice.description,
+        amount: invoice.amount,
+        invoiceId: invoice.id,
+        pdfUrl: `/api/invoices/${invoice.id}/pdf`
+      });
+    } catch (error) {
+      console.error("Error getting invoice mobile email data:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des données" });
+    }
+  });
+
+  app.post("/api/admin/invoices/:id/send-email", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Facture non trouvée" });
+      }
+
+      const user = await storage.getUser(invoice.userId);
+      if (!user || !user.email) {
+        return res.status(400).json({ message: "Email du client non disponible" });
+      }
+
+      const invoiceWithUser = { ...invoice, user };
+      
+      // Generate PDF
+      const pdfGenerator = new PDFGenerator();
+      const pdfBuffer = await pdfGenerator.generateInvoicePDF(invoiceWithUser);
+      
+      // Send email
+      const emailService = new EmailService();
+      const emailSent = await emailService.sendInvoiceEmail(
+        user.email,
+        user.name,
+        invoice.id,
+        pdfBuffer
+      );
+
+      if (emailSent) {
+        // Mark email as sent
+        await storage.updateInvoice(invoice.id, { emailSent: true });
+        res.json({ message: "Facture envoyée par email avec succès" });
+      } else {
+        res.status(500).json({ message: "Erreur lors de l'envoi de l'email" });
+      }
+    } catch (error) {
+      console.error("Error sending invoice email:", error);
+      res.status(500).json({ message: "Erreur lors de l'envoi de l'email" });
+    }
+  });
+
+  app.put("/api/admin/invoices/:id/photos", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { photosBefore, photosAfter, workDetails } = req.body;
+      const objectStorageService = new ObjectStorageService();
+      
+      const updatedInvoice = await storage.updateInvoice(req.params.id, {
+        photosBefore,
+        photosAfter,
+        workDetails,
+      });
+      
+      res.json(updatedInvoice);
+    } catch (error) {
+      console.error("Error updating invoice photos:", error);
+      res.status(500).json({ message: "Erreur lors de la mise à jour des photos" });
+    }
+  });
+
+  // Improved quote to invoice conversion
+  // Create new quote from admin with client info
+  app.post("/api/admin/quotes/create", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const quoteData = req.body;
+      
+      // First, check if user exists or create them
+      let user = await storage.getUserByEmail(quoteData.clientEmail);
+      
+      if (!user) {
+        // Create new user with provided info
+        const hashedPassword = await bcrypt.hash("temp123", 10); // Temporary password
+        const newUser = await storage.createUser({
+          name: quoteData.clientName,
+          email: quoteData.clientEmail,
+          password: hashedPassword,
+          phone: quoteData.clientPhone || "",
+          address: quoteData.clientAddress || "",
+          clientType: quoteData.clientType,
+          companyName: quoteData.companyName,
+          companyAddress: quoteData.companyAddress,
+          companySiret: quoteData.companySiret,
+          companyVat: quoteData.companyVat,
+          companyApe: quoteData.companyApe,
+          companyContact: quoteData.companyContact,
+        });
+        user = newUser;
+      }
+
+      // Create quote for this user
+      const quote = await storage.createQuote({
+        userId: user.id,
+        vehicleBrand: quoteData.vehicleBrand,
+        vehicleModel: quoteData.vehicleModel,
+        vehicleYear: quoteData.vehicleYear,
+        vehicleEngine: quoteData.vehicleEngine,
+        description: quoteData.description,
+        status: "pending",
+        lastModifiedBy: req.user.userId,
+      });
+
+      // Create notification for the user
+      await storage.createNotification({
+        userId: user.id,
+        title: "Nouveau devis créé",
+        message: "Un devis a été créé pour votre véhicule. Vous recevrez une réponse prochainement.",
+        type: "quote",
+        relatedId: quote.id,
+      });
+
+      res.status(201).json({ quote, user });
+    } catch (error) {
+      console.error("Error creating quote:", error);
+      res.status(500).json({ message: "Erreur lors de la création du devis" });
+    }
+  });
+
+  app.post("/api/admin/quotes/:id/convert-to-invoice", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Devis non trouvé" });
+      }
+
+      if (quote.status !== "approved") {
+        return res.status(400).json({ message: "Le devis doit être validé avant conversion" });
+      }
+
+      if (!quote.amount) {
+        return res.status(400).json({ message: "Le devis doit avoir un montant défini" });
+      }
+
+      const subtotal = (parseFloat(quote.amount) / 1.20).toFixed(2);
+      const vatAmount = (parseFloat(quote.amount) - parseFloat(subtotal)).toFixed(2);
+
+      const invoiceData = {
+        userId: quote.userId,
+        quoteId: quote.id,
+        subtotal: subtotal,
+        vatRate: "20.00",
+        vatAmount: vatAmount,
+        amount: quote.amount,
+        description: `Facture générée depuis le devis ${quote.id.substring(0, 8)} - ${quote.description}`,
+        workDetails: quote.description,
+      };
+
+      const invoice = await storage.createInvoice(invoiceData);
+      
+      // Update quote status
+      await storage.updateQuote(quote.id, { status: "converted" });
+      
+      // Create notification
+      await storage.createNotification({
+        userId: quote.userId,
+        title: "Facture générée",
+        message: `Une facture a été générée à partir de votre devis. Montant: ${quote.amount}€`,
+        type: "invoice",
+        relatedId: invoice.id,
+      });
+
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error converting quote to invoice:", error);
+      res.status(500).json({ message: "Erreur lors de la conversion du devis" });
+    }
+  });
+
+  // Create blank invoice route
+  app.post("/api/admin/invoices", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId, amount, description, workDetails } = req.body;
+      
+      if (!userId || !amount || !description) {
+        return res.status(400).json({ message: "Données manquantes" });
+      }
+
+      const subtotalAmount = parseFloat(amount);
+      const vatAmount = subtotalAmount * 0.20;
+      const totalAmount = subtotalAmount + vatAmount;
+
+      const invoiceData = {
+        userId,
+        subtotal: subtotalAmount.toFixed(2),
+        vatRate: "20.00", 
+        vatAmount: vatAmount.toFixed(2),
+        amount: totalAmount.toFixed(2),
+        description,
+        workDetails: workDetails || null,
+      };
+
+      const invoice = await storage.createInvoice(invoiceData);
+      
+      // Create notification
+      await storage.createNotification({
+        userId,
+        title: "Nouvelle facture",
+        message: `Une nouvelle facture a été créée pour un montant de ${totalAmount.toFixed(2)}€`,
+        type: "invoice",
+        relatedId: invoice.id,
+      });
+      
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Erreur lors de la création de la facture" });
+    }
+  });
+
+  // Routes pour la gestion des configurations de créneaux
+  app.get("/api/admin/time-slot-configs", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const configs = await storage.getTimeSlotConfigs();
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching time slot configs:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des configurations" });
+    }
+  });
+
+  app.post("/api/admin/time-slot-configs", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const config = await storage.createTimeSlotConfig(req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error creating time slot config:", error);
+      res.status(500).json({ message: "Erreur lors de la création de la configuration" });
+    }
+  });
+
+  app.put("/api/admin/time-slot-configs/:date/:timeSlot", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { date, timeSlot } = req.params;
+      const config = await storage.updateTimeSlotConfig(date, timeSlot, req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating time slot config:", error);
+      res.status(500).json({ message: "Erreur lors de la mise à jour de la configuration" });
+    }
+  });
+
+  app.get("/api/admin/calendar-data", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const allBookings = await storage.getBookings();
+      const bookings = allBookings.filter(booking => {
+        const bookingDate = booking.date;
+        return (!startDate || bookingDate >= startDate) && 
+               (!endDate || bookingDate <= endDate);
+      });
+      
+      const configs = await storage.getTimeSlotConfigs();
+      
+      res.json({
+        bookings,
+        configs,
+      });
+    } catch (error) {
+      console.error("Error fetching calendar data:", error);
+      res.status(500).json({ message: "Erreur lors de la récupération des données du calendrier" });
+    }
+  });
+
+  // Google Calendar OAuth routes
+  app.get("/api/google/auth", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { GoogleCalendarService } = await import('./googleCalendar');
+      const calendarService = new GoogleCalendarService();
+      const authUrl = calendarService.generateAuthUrl();
+      res.json({ authUrl });
+    } catch (error) {
+      console.error("Error generating Google auth URL:", error);
+      res.status(500).json({ message: "Erreur lors de la génération de l'URL d'authentification" });
+    }
+  });
+
+  app.get("/api/google/callback", async (req, res) => {
+    try {
+      const { code } = req.query;
+      if (!code) {
+        return res.status(400).json({ message: "Code d'autorisation manquant" });
+      }
+
+      const { GoogleCalendarService } = await import('./googleCalendar');
+      const calendarService = new GoogleCalendarService();
+      const tokens = await calendarService.getTokens(code as string);
+      
+      // Store tokens in admin settings (in a real app, you'd store this per user)
+      await storage.updateAdminSettings({
+        googleCalendarTokens: JSON.stringify(tokens)
+      });
+
+      // Redirect to admin calendar with success message
+      res.redirect('/admin/calendar?sync=success');
+    } catch (error) {
+      console.error("Error handling Google callback:", error);
+      res.redirect('/admin/calendar?sync=error');
+    }
+  });
+
+  app.post("/api/google/sync-booking", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const { bookingId } = req.body;
+      
+      // Get admin settings to retrieve Google tokens
+      const settings = await storage.getAdminSettings();
+      const tokens = settings?.googleCalendarTokens ? JSON.parse(settings.googleCalendarTokens) : null;
+      
+      if (!tokens) {
+        return res.status(400).json({ message: "Google Calendar non configuré" });
+      }
+
+      // Get booking details
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Réservation non trouvée" });
+      }
+
+      const user = await storage.getUser(booking.userId);
+      if (!user) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const { GoogleCalendarService } = await import('./googleCalendar');
+      const calendarService = new GoogleCalendarService();
+      calendarService.setCredentials(tokens);
+
+      // Create calendar event
+      const calendarEvent = await calendarService.createBookingEvent(
+        booking,
+        user.email,
+        user.name
+      );
+
+      // Store calendar event ID in booking
+      await storage.updateBookingWithTracking(bookingId, {
+        googleCalendarEventId: calendarEvent.id
+      }, req.user.userId);
+
+      res.json({ 
+        message: "Réservation synchronisée avec Google Calendar",
+        eventId: calendarEvent.id,
+        eventUrl: calendarEvent.htmlLink
+      });
+    } catch (error) {
+      console.error("Error syncing booking with Google Calendar:", error);
+      res.status(500).json({ message: "Erreur lors de la synchronisation" });
+    }
+  });
+
+  app.get("/api/google/status", authenticateToken, requireAdmin, async (req: any, res) => {
+    try {
+      const settings = await storage.getAdminSettings();
+      const isConnected = !!(settings?.googleCalendarTokens);
+      
+      res.json({ 
+        connected: isConnected,
+        message: isConnected ? "Google Calendar connecté" : "Google Calendar non connecté"
+      });
+    } catch (error) {
+      console.error("Error checking Google Calendar status:", error);
+      res.status(500).json({ message: "Erreur lors de la vérification du statut" });
     }
   });
 

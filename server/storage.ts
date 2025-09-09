@@ -1,8 +1,12 @@
 import { 
   type User, type InsertUser, type Service, type InsertService, type Booking, type InsertBooking, 
   type Quote, type InsertQuote, type Invoice, type InsertInvoice, type Notification, 
-  type InsertNotification, type WorkProgress, type InsertWorkProgress,
-  users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings
+  type InsertNotification, type WorkProgress, type InsertWorkProgress, type AuditLog, type InsertAuditLog,
+  type BookingAssignment, type InsertBookingAssignment, type TimeSlotConfig, type InsertTimeSlotConfig,
+  type UserGroup, type InsertUserGroup, type UserGroupMember, type InsertUserGroupMember,
+  type LeaveRequest, type InsertLeaveRequest, type UpdateClientProfileData,
+  users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings, auditLogs, 
+  bookingAssignments, timeSlotConfigs, userGroups, userGroupMembers, leaveRequests
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -12,6 +16,11 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(id: string, hashedPassword: string): Promise<void>;
+  updateUserProfile(id: string, profileData: UpdateClientProfileData): Promise<User | undefined>;
+  updateUser(id: string, userData: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<void>;
+  getAllUsers(): Promise<User[]>;
   
   // Services
   getServices(): Promise<Service[]>;
@@ -48,6 +57,56 @@ export interface IStorage {
   getWorkProgressByBooking(bookingId: string): Promise<WorkProgress[]>;
   createWorkProgress(progress: InsertWorkProgress): Promise<WorkProgress>;
   updateWorkProgress(id: string, progress: Partial<InsertWorkProgress>): Promise<WorkProgress | undefined>;
+  
+  // Audit Logs
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(entityType?: string, entityId?: string): Promise<AuditLog[]>;
+  
+  // Booking Assignments
+  assignEmployeeToBooking(assignment: InsertBookingAssignment): Promise<BookingAssignment>;
+  getEmployeeAssignments(employeeId: string): Promise<BookingAssignment[]>;
+  getBookingAssignments(bookingId: string): Promise<BookingAssignment[]>;
+  
+  // Additional methods for enhanced tracking
+  updateBookingWithTracking(id: string, status: string, userId: string): Promise<Booking | undefined>;
+  updateQuoteWithTracking(id: string, data: Partial<Quote>, userId: string): Promise<Quote | undefined>;
+  updateInvoiceWithTracking(id: string, data: Partial<Invoice>, userId: string): Promise<Invoice | undefined>;
+  
+  // Employee management
+  getEmployees(): Promise<User[]>;
+  
+  // Time Slot Configurations
+  getTimeSlotConfigs(): Promise<TimeSlotConfig[]>;
+  createTimeSlotConfig(config: InsertTimeSlotConfig): Promise<TimeSlotConfig>;
+  updateTimeSlotConfig(date: string, timeSlot: string, data: Partial<InsertTimeSlotConfig>): Promise<TimeSlotConfig | undefined>;
+  getTimeSlotConfig(date: string, timeSlot: string): Promise<TimeSlotConfig | undefined>;
+  
+  // Admin Settings
+  getAdminSettings(): Promise<any>;
+  updateAdminSettings(settings: any): Promise<any>;
+  
+  // Additional booking methods
+  getBookings(): Promise<Booking[]>;
+  getBooking(id: string): Promise<Booking | undefined>;
+  
+  // User Groups
+  getUserGroups(): Promise<UserGroup[]>;
+  getUserGroup(id: string): Promise<UserGroup | undefined>;
+  createUserGroup(group: InsertUserGroup): Promise<UserGroup>;
+  updateUserGroup(id: string, updates: Partial<InsertUserGroup>): Promise<UserGroup | undefined>;
+  deleteUserGroup(id: string): Promise<void>;
+  getUsersByGroup(groupId: string): Promise<User[]>;
+  getUserGroupMemberships(userId: string): Promise<UserGroup[]>;
+  addUserToGroup(userId: string, groupId: string, addedBy: string): Promise<UserGroupMember>;
+  removeUserFromGroup(userId: string, groupId: string): Promise<void>;
+  
+  // Leave Requests
+  getLeaveRequests(employeeId?: string): Promise<LeaveRequest[]>;
+  getLeaveRequest(id: string): Promise<LeaveRequest | undefined>;
+  createLeaveRequest(request: InsertLeaveRequest): Promise<LeaveRequest>;
+  updateLeaveRequestStatus(id: string, status: string, approvedBy: string, notes?: string): Promise<LeaveRequest | undefined>;
+  getUserLeaveStatus(userId: string): Promise<{isOnLeave: boolean, leaveEnd?: Date}>;
+  updateUserLeaveStatus(userId: string, isOnLeave: boolean, startDate?: Date, endDate?: Date, reason?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -113,6 +172,43 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.id, id));
+  }
+
+  async updateUserProfile(id: string, profileData: UpdateClientProfileData): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        name: profileData.name,
+        phone: profileData.phone,
+        address: profileData.address,
+        clientType: profileData.clientType,
+        companyName: profileData.companyName,
+        companyAddress: profileData.companyAddress,
+        companySiret: profileData.companySiret,
+        companyVat: profileData.companyVat,
+        companyApe: profileData.companyApe,
+        companyContact: profileData.companyContact,
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser || undefined;
+  }
+
+  async updateUser(id: string, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(userData)
+      .where(eq(users.id, id))
+      .returning();
+    
+    return updatedUser || undefined;
   }
 
   // Services
@@ -190,6 +286,15 @@ export class DatabaseStorage implements IStorage {
     return updatedQuote || undefined;
   }
 
+  async updateQuote(id: string, data: Partial<Quote>): Promise<Quote | undefined> {
+    const [updatedQuote] = await db
+      .update(quotes)
+      .set(data)
+      .where(eq(quotes.id, id))
+      .returning();
+    return updatedQuote || undefined;
+  }
+
   // Invoices
   async getUserInvoices(userId: string): Promise<Invoice[]> {
     return await db.select().from(invoices).where(eq(invoices.userId, userId));
@@ -204,12 +309,21 @@ export class DatabaseStorage implements IStorage {
     return invoice || undefined;
   }
 
-  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
-    const [newInvoice] = await db
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const [invoice] = await db
       .insert(invoices)
-      .values(invoice)
+      .values(insertInvoice)
       .returning();
-    return newInvoice;
+    return invoice;
+  }
+
+  async updateInvoice(id: string, data: Partial<Invoice>): Promise<Invoice | undefined> {
+    const [updatedInvoice] = await db
+      .update(invoices)
+      .set(data)
+      .where(eq(invoices.id, id))
+      .returning();
+    return updatedInvoice || undefined;
   }
 
   async updateInvoiceStatus(id: string, status: string): Promise<Invoice | undefined> {
@@ -219,6 +333,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(invoices.id, id))
       .returning();
     return updatedInvoice || undefined;
+  }
+
+  async deleteInvoice(id: string): Promise<void> {
+    await db.delete(invoices).where(eq(invoices.id, id));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Notifications
@@ -251,6 +377,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work Progress
+  async getAllWorkProgress(): Promise<WorkProgress[]> {
+    return await db.select().from(workProgress).orderBy(workProgress.createdAt);
+  }
+
   async getWorkProgressByBooking(bookingId: string): Promise<WorkProgress[]> {
     return await db.select().from(workProgress)
       .where(eq(workProgress.bookingId, bookingId))
@@ -272,6 +402,347 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workProgress.id, id))
       .returning();
     return updatedProgress || undefined;
+  }
+
+  // Audit Logs
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [newLog] = await db
+      .insert(auditLogs)
+      .values(log)
+      .returning();
+    return newLog;
+  }
+
+  async getAuditLogs(entityType?: string, entityId?: string): Promise<AuditLog[]> {
+    let query = db.select().from(auditLogs);
+    
+    if (entityType && entityId) {
+      query = query.where(and(eq(auditLogs.entityType, entityType), eq(auditLogs.entityId, entityId)));
+    } else if (entityType) {
+      query = query.where(eq(auditLogs.entityType, entityType));
+    }
+    
+    return await query.orderBy(desc(auditLogs.createdAt));
+  }
+
+  // Booking Assignments
+  async assignEmployeeToBooking(assignment: InsertBookingAssignment): Promise<BookingAssignment> {
+    const [newAssignment] = await db
+      .insert(bookingAssignments)
+      .values(assignment)
+      .returning();
+    return newAssignment;
+  }
+
+  async getEmployeeAssignments(employeeId: string): Promise<BookingAssignment[]> {
+    return await db.select().from(bookingAssignments)
+      .where(eq(bookingAssignments.employeeId, employeeId))
+      .orderBy(desc(bookingAssignments.assignedAt));
+  }
+
+  async getBookingAssignments(bookingId: string): Promise<BookingAssignment[]> {
+    return await db.select().from(bookingAssignments)
+      .where(eq(bookingAssignments.bookingId, bookingId));
+  }
+
+  // Enhanced tracking methods
+  async updateBookingWithTracking(id: string, status: string, userId: string): Promise<Booking | undefined> {
+    // Get old booking for audit
+    const oldBooking = await this.getBooking(id);
+    
+    const [updatedBooking] = await db
+      .update(bookings)
+      .set({ 
+        status, 
+        lastModifiedBy: userId,
+        updatedAt: new Date()
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+
+    // Create audit log
+    if (updatedBooking && oldBooking) {
+      await this.createAuditLog({
+        userId,
+        action: 'status_change',
+        entityType: 'booking',
+        entityId: id,
+        oldValues: { status: oldBooking.status },
+        newValues: { status: updatedBooking.status }
+      });
+    }
+
+    return updatedBooking || undefined;
+  }
+
+  async updateQuoteWithTracking(id: string, data: Partial<Quote>, userId: string): Promise<Quote | undefined> {
+    // Get old quote for audit
+    const oldQuote = await this.getQuote(id);
+    
+    const [updatedQuote] = await db
+      .update(quotes)
+      .set({ 
+        ...data, 
+        lastModifiedBy: userId,
+        updatedAt: new Date()
+      })
+      .where(eq(quotes.id, id))
+      .returning();
+
+    // Create audit log
+    if (updatedQuote && oldQuote) {
+      await this.createAuditLog({
+        userId,
+        action: data.status ? 'status_change' : 'update',
+        entityType: 'quote',
+        entityId: id,
+        oldValues: oldQuote,
+        newValues: data
+      });
+    }
+
+    return updatedQuote || undefined;
+  }
+
+  async updateInvoiceWithTracking(id: string, data: Partial<Invoice>, userId: string): Promise<Invoice | undefined> {
+    // Get old invoice for audit
+    const oldInvoice = await this.getInvoice(id);
+    
+    const [updatedInvoice] = await db
+      .update(invoices)
+      .set({ 
+        ...data, 
+        lastModifiedBy: userId,
+        updatedAt: new Date()
+      })
+      .where(eq(invoices.id, id))
+      .returning();
+
+    // Create audit log
+    if (updatedInvoice && oldInvoice) {
+      await this.createAuditLog({
+        userId,
+        action: data.status ? 'status_change' : 'update',
+        entityType: 'invoice',
+        entityId: id,
+        oldValues: oldInvoice,
+        newValues: data
+      });
+    }
+
+    return updatedInvoice || undefined;
+  }
+
+  // Employee management
+  async getEmployees(): Promise<User[]> {
+    return await db.select().from(users)
+      .where(eq(users.role, 'employee'));
+  }
+
+  // Time Slot Configurations
+  async getTimeSlotConfigs(): Promise<TimeSlotConfig[]> {
+    return await db.select().from(timeSlotConfigs);
+  }
+
+  async createTimeSlotConfig(config: InsertTimeSlotConfig): Promise<TimeSlotConfig> {
+    const [newConfig] = await db.insert(timeSlotConfigs)
+      .values(config)
+      .returning();
+    return newConfig;
+  }
+
+  async updateTimeSlotConfig(date: string, timeSlot: string, data: Partial<InsertTimeSlotConfig>): Promise<TimeSlotConfig | undefined> {
+    const [updatedConfig] = await db.update(timeSlotConfigs)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(timeSlotConfigs.date, date), eq(timeSlotConfigs.timeSlot, timeSlot)))
+      .returning();
+    
+    return updatedConfig || undefined;
+  }
+
+  async getTimeSlotConfig(date: string, timeSlot: string): Promise<TimeSlotConfig | undefined> {
+    const [config] = await db.select().from(timeSlotConfigs)
+      .where(and(eq(timeSlotConfigs.date, date), eq(timeSlotConfigs.timeSlot, timeSlot)));
+    return config || undefined;
+  }
+
+  // Additional method for getting a single booking
+  async getBooking(id: string): Promise<Booking | undefined> {
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+    return booking || undefined;
+  }
+
+  async getBookings(): Promise<Booking[]> {
+    return await db.select().from(bookings);
+  }
+
+  async getAdminSettings(): Promise<any> {
+    const [setting] = await db.select().from(adminSettings).limit(1);
+    return setting || undefined;
+  }
+
+  async updateAdminSettings(data: any): Promise<void> {
+    const existing = await this.getAdminSettings();
+    
+    if (existing) {
+      await db
+        .update(adminSettings)
+        .set(data)
+        .where(eq(adminSettings.id, existing.id));
+    } else {
+      await db.insert(adminSettings).values(data);
+    }
+  }
+
+  // User Groups Implementation
+  async getUserGroups(): Promise<UserGroup[]> {
+    return await db.select().from(userGroups).orderBy(userGroups.name);
+  }
+
+  async getUserGroup(id: string): Promise<UserGroup | undefined> {
+    const [group] = await db.select().from(userGroups).where(eq(userGroups.id, id));
+    return group || undefined;
+  }
+
+  async createUserGroup(group: InsertUserGroup): Promise<UserGroup> {
+    const [newGroup] = await db.insert(userGroups).values(group).returning();
+    return newGroup;
+  }
+
+  async updateUserGroup(id: string, updates: Partial<InsertUserGroup>): Promise<UserGroup | undefined> {
+    const [updatedGroup] = await db.update(userGroups)
+      .set(updates)
+      .where(eq(userGroups.id, id))
+      .returning();
+    return updatedGroup || undefined;
+  }
+
+  async deleteUserGroup(id: string): Promise<void> {
+    // First remove all members from the group
+    await db.delete(userGroupMembers).where(eq(userGroupMembers.groupId, id));
+    // Then delete the group
+    await db.delete(userGroups).where(eq(userGroups.id, id));
+  }
+
+  async getUsersByGroup(groupId: string): Promise<User[]> {
+    const result = await db
+      .select({ 
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        address: users.address,
+        role: users.role,
+        clientType: users.clientType,
+        companyName: users.companyName,
+        companyAddress: users.companyAddress,
+        companySiret: users.companySiret,
+        companyVat: users.companyVat,
+        companyApe: users.companyApe,
+        companyContact: users.companyContact,
+        isOnLeave: users.isOnLeave,
+        leaveStartDate: users.leaveStartDate,
+        leaveEndDate: users.leaveEndDate,
+        leaveReason: users.leaveReason,
+        createdAt: users.createdAt
+      })
+      .from(users)
+      .innerJoin(userGroupMembers, eq(users.id, userGroupMembers.userId))
+      .where(eq(userGroupMembers.groupId, groupId));
+    
+    return result;
+  }
+
+  async getUserGroupMemberships(userId: string): Promise<UserGroup[]> {
+    const result = await db
+      .select({
+        id: userGroups.id,
+        name: userGroups.name,
+        description: userGroups.description,
+        type: userGroups.type,
+        color: userGroups.color,
+        permissions: userGroups.permissions,
+        createdAt: userGroups.createdAt,
+        createdBy: userGroups.createdBy
+      })
+      .from(userGroups)
+      .innerJoin(userGroupMembers, eq(userGroups.id, userGroupMembers.groupId))
+      .where(eq(userGroupMembers.userId, userId));
+    
+    return result;
+  }
+
+  async addUserToGroup(userId: string, groupId: string, addedBy: string): Promise<UserGroupMember> {
+    const [member] = await db
+      .insert(userGroupMembers)
+      .values({ userId, groupId, addedBy })
+      .returning();
+    return member;
+  }
+
+  async removeUserFromGroup(userId: string, groupId: string): Promise<void> {
+    await db
+      .delete(userGroupMembers)
+      .where(and(eq(userGroupMembers.userId, userId), eq(userGroupMembers.groupId, groupId)));
+  }
+
+  // Leave Requests Implementation
+  async getLeaveRequests(employeeId?: string): Promise<LeaveRequest[]> {
+    if (employeeId) {
+      return await db.select().from(leaveRequests)
+        .where(eq(leaveRequests.employeeId, employeeId))
+        .orderBy(desc(leaveRequests.createdAt));
+    }
+    return await db.select().from(leaveRequests).orderBy(desc(leaveRequests.createdAt));
+  }
+
+  async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
+    const [request] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return request || undefined;
+  }
+
+  async createLeaveRequest(request: InsertLeaveRequest): Promise<LeaveRequest> {
+    const [newRequest] = await db.insert(leaveRequests).values(request).returning();
+    return newRequest;
+  }
+
+  async updateLeaveRequestStatus(id: string, status: string, approvedBy: string, notes?: string): Promise<LeaveRequest | undefined> {
+    const [updatedRequest] = await db.update(leaveRequests)
+      .set({
+        status,
+        approvedBy,
+        approvedAt: new Date(),
+        notes
+      })
+      .where(eq(leaveRequests.id, id))
+      .returning();
+    return updatedRequest || undefined;
+  }
+
+  async getUserLeaveStatus(userId: string): Promise<{isOnLeave: boolean, leaveEnd?: Date}> {
+    const [user] = await db.select({
+      isOnLeave: users.isOnLeave,
+      leaveEndDate: users.leaveEndDate
+    }).from(users).where(eq(users.id, userId));
+    
+    return {
+      isOnLeave: user?.isOnLeave || false,
+      leaveEnd: user?.leaveEndDate || undefined
+    };
+  }
+
+  async updateUserLeaveStatus(userId: string, isOnLeave: boolean, startDate?: Date, endDate?: Date, reason?: string): Promise<void> {
+    await db.update(users)
+      .set({
+        isOnLeave,
+        leaveStartDate: startDate || null,
+        leaveEndDate: endDate || null,
+        leaveReason: reason || null
+      })
+      .where(eq(users.id, userId));
   }
 }
 

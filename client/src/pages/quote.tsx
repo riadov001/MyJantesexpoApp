@@ -20,7 +20,6 @@ export default function Quote() {
 
   const { data: services } = useQuery({
     queryKey: ["/api/services"],
-    queryFn: () => apiGet<Service[]>("/api/services"),
   });
 
   const form = useForm<InsertQuote>({

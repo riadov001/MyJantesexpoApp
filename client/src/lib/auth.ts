@@ -34,4 +34,8 @@ export class AuthService {
     const token = this.getToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
+
+  static logout(): void {
+    this.removeToken();
+  }
 }

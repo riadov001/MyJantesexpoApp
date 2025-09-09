@@ -12,38 +12,42 @@ import { useToast } from "@/hooks/use-toast";
 import { apiGet, apiPost } from "@/lib/api";
 import { useLocation } from "wouter";
 
-const timeSlots = [
-  "9h00 - 10h30",
-  "11h00 - 12h30",
-  "14h00 - 15h30",
-  "16h00 - 17h30",
+// Créneaux suggérés pour aider l'utilisateur
+const suggestedTimes = [
+  { label: "Matin (9h - 12h)", start: "09:00", end: "12:00", days: 0 },
+  { label: "Après-midi (14h - 17h)", start: "14:00", end: "17:00", days: 0 },
+  { label: "Toute la journée (9h - 17h)", start: "09:00", end: "17:00", days: 0 },
+  { label: "2 jours (Dépôt 9h → Récupération lendemain 17h)", start: "09:00", end: "17:00", days: 1 },
+  { label: "3 jours (Dépôt 9h → Récupération J+2 17h)", start: "09:00", end: "17:00", days: 2 },
+  { label: "1 semaine (Dépôt lundi 9h → Récupération vendredi 17h)", start: "09:00", end: "17:00", days: 4 },
 ];
 
 export default function Booking() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
-  const { data: services } = useQuery({
+  const { data: services } = useQuery<Service[]>({
     queryKey: ["/api/services"],
-    queryFn: () => apiGet<Service[]>("/api/services"),
   });
 
-  const form = useForm<InsertBooking>({
+  const form = useForm<any>({
     resolver: zodResolver(insertBookingSchema),
     defaultValues: {
       serviceId: "",
-      date: "",
-      timeSlot: "",
+      startDateTime: "",
+      endDateTime: "",
       vehicleBrand: "",
       vehiclePlate: "",
+      wheelQuantity: 4,
+      wheelDiameter: "",
       notes: "",
     },
   });
 
   const createBookingMutation = useMutation({
-    mutationFn: (data: InsertBooking) => apiPost("/api/bookings", data),
+    mutationFn: (data: any) => apiPost("/api/bookings", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/history"] });
@@ -62,24 +66,34 @@ export default function Booking() {
     },
   });
 
-  const onSubmit = (data: InsertBooking) => {
-    createBookingMutation.mutate({
-      ...data,
-      timeSlot: selectedTimeSlot,
-    });
+  const onSubmit = (data: any) => {
+    // Log pour debug  
+    console.log("Données de réservation envoyées:", data);
+    createBookingMutation.mutate(data);
+  };
+
+  const handleSuggestedTime = (start: string, end: string, days: number) => {
+    if (selectedDate) {
+      const startDate = new Date(selectedDate);
+      const endDate = new Date(selectedDate);
+      endDate.setDate(startDate.getDate() + days);
+      
+      form.setValue("startDateTime", `${selectedDate}T${start}`);
+      form.setValue("endDateTime", `${endDate.toISOString().split('T')[0]}T${end}`);
+    }
   };
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 md:pb-0">
       <div className="px-6 py-4 border-b border-border">
-        <h2 className="text-xl font-bold">Réservation</h2>
-        <p className="text-sm text-muted-foreground">Planifiez votre intervention</p>
+        <h2 className="text-xl md:text-2xl font-bold">Réservation</h2>
+        <p className="text-sm text-muted-foreground">Planifiez votre intervention • Séjours multi-jours acceptés</p>
       </div>
 
-      <div className="px-6 py-6 space-y-6">
+      <div className="px-6 py-6 max-w-2xl mx-auto space-y-6">
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Service Selection */}
           <div>
@@ -108,7 +122,7 @@ export default function Booking() {
           {/* Date Selection */}
           <div>
             <Label htmlFor="date" className="block text-sm font-medium mb-2">
-              Date
+              Date de la prestation
             </Label>
             <Input
               id="date"
@@ -116,43 +130,80 @@ export default function Booking() {
               min={today}
               className="form-input"
               data-testid="input-date"
-              {...form.register("date")}
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                // Reset time fields when date changes
+                form.setValue("startDateTime", "");
+                form.setValue("endDateTime", "");
+              }}
             />
-            {form.formState.errors.date && (
-              <p className="text-sm text-destructive mt-1">
-                {form.formState.errors.date.message}
-              </p>
-            )}
           </div>
 
-          {/* Time Slot Selection */}
-          <div>
-            <Label className="block text-sm font-medium mb-2">Créneau</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {timeSlots.map((slot, index) => (
-                <button
-                  key={slot}
-                  type="button"
-                  className={`p-3 border rounded-ios text-sm transition-colors ${
-                    selectedTimeSlot === slot
-                      ? "border-primary bg-secondary"
-                      : "border-border hover:border-primary hover:bg-secondary"
-                  }`}
-                  onClick={() => {
-                    setSelectedTimeSlot(slot);
-                    form.setValue("timeSlot", slot);
-                  }}
-                  data-testid={`button-timeslot-${index}`}
-                >
-                  {slot}
-                </button>
-              ))}
-            </div>
-            {form.formState.errors.timeSlot && (
-              <p className="text-sm text-destructive mt-1">
-                {form.formState.errors.timeSlot.message}
+          {/* Créneaux suggérés */}
+          {selectedDate && (
+            <div>
+              <Label className="block text-sm font-medium mb-2">Créneaux suggérés (optionnel)</Label>
+              <p className="text-xs text-muted-foreground mb-3">
+                💡 Votre véhicule peut rester plusieurs jours au garage selon vos besoins
               </p>
-            )}
+              <div className="grid grid-cols-1 gap-2">
+                {suggestedTimes.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="p-3 border rounded-xl text-sm transition-colors border-border hover:border-primary hover:bg-secondary text-left"
+                    onClick={() => handleSuggestedTime(suggestion.start, suggestion.end, suggestion.days)}
+                    data-testid={`button-suggestion-${index}`}
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Heure de début et fin */}
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="startDateTime" className="block text-sm font-medium mb-2">
+                📅 Date et heure de dépôt du véhicule
+              </Label>
+              <Input
+                id="startDateTime"
+                type="datetime-local"
+                min={today ? `${today}T08:00` : undefined}
+                className="form-input"
+                data-testid="input-start-time"
+                {...form.register("startDateTime")}
+              />
+              {form.formState.errors.startDateTime && (
+                <p className="text-sm text-destructive mt-1">
+                  {form.formState.errors.startDateTime.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="endDateTime" className="block text-sm font-medium mb-2">
+                📅 Date et heure de récupération du véhicule
+              </Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Peut être le même jour ou plusieurs jours plus tard
+              </p>
+              <Input
+                id="endDateTime"
+                type="datetime-local"
+                min={form.watch("startDateTime") || (today ? `${today}T08:00` : undefined)}
+                className="form-input"
+                data-testid="input-end-time"
+                {...form.register("endDateTime")}
+              />
+              {form.formState.errors.endDateTime && (
+                <p className="text-sm text-destructive mt-1">
+                  {form.formState.errors.endDateTime.message}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Vehicle Info */}
@@ -183,6 +234,44 @@ export default function Booking() {
                   {form.formState.errors.vehiclePlate.message}
                 </p>
               )}
+
+              {/* Informations jantes */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                  <Label htmlFor="wheelQuantity" className="block text-sm font-medium mb-2">
+                    Nombre de jantes
+                  </Label>
+                  <Select onValueChange={(value) => form.setValue("wheelQuantity", parseInt(value))}>
+                    <SelectTrigger className="form-input" data-testid="select-wheel-quantity">
+                      <SelectValue placeholder="Choisir le nombre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 jantes</SelectItem>
+                      <SelectItem value="4">4 jantes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="wheelDiameter" className="block text-sm font-medium mb-2">
+                    Diamètre (pouces)
+                  </Label>
+                  <Select onValueChange={(value) => form.setValue("wheelDiameter", value)}>
+                    <SelectTrigger className="form-input" data-testid="select-wheel-diameter">
+                      <SelectValue placeholder="Choisir le diamètre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 pouces</SelectItem>
+                      <SelectItem value="16">16 pouces</SelectItem>
+                      <SelectItem value="17">17 pouces</SelectItem>
+                      <SelectItem value="18">18 pouces</SelectItem>
+                      <SelectItem value="19">19 pouces</SelectItem>
+                      <SelectItem value="20">20 pouces</SelectItem>
+                      <SelectItem value="21">21 pouces</SelectItem>
+                      <SelectItem value="22">22 pouces</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
 

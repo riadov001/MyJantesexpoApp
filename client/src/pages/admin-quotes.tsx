@@ -1,21 +1,22 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, downloadFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, User, Euro, Clock, Image } from "lucide-react";
+import { useLocation } from "wouter";
 import type { Quote } from "@shared/schema";
 
 export default function AdminQuotes() {
   const [priceInput, setPriceInput] = useState<{ [key: string]: string }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
-  const { data: quotes, isLoading } = useQuery({
+  const { data: quotes, isLoading } = useQuery<Quote[]>({
     queryKey: ["/api/admin/quotes"],
-    queryFn: () => apiGet<Quote[]>("/api/admin/quotes"),
   });
 
   const updateStatusMutation = useMutation({
@@ -33,6 +34,25 @@ export default function AdminQuotes() {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de mettre à jour le devis",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const convertToInvoiceMutation = useMutation({
+    mutationFn: (quoteId: string) => apiPost(`/api/admin/quotes/${quoteId}/convert-to-invoice`, {}),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
+      toast({
+        title: "Facture générée",
+        description: `Facture #${data.invoiceNumber} créée avec succès à partir du devis.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de générer la facture",
         variant: "destructive",
       });
     },
@@ -95,13 +115,25 @@ export default function AdminQuotes() {
   }
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 md:pb-0">
       <div className="px-6 py-4 border-b border-border">
-        <h2 className="text-xl font-bold" data-testid="admin-quotes-title">Gestion des Devis</h2>
-        <p className="text-sm text-muted-foreground">Chiffrez et validez les demandes de devis</p>
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold md:text-2xl" data-testid="admin-quotes-title">Gestion des Devis</h2>
+            <p className="text-sm text-muted-foreground md:text-base">Chiffrez et validez les demandes de devis</p>
+          </div>
+          <Button
+            onClick={() => setLocation("/admin/quotes/create")}
+            className="ios-button"
+            data-testid="button-create-quote"
+          >
+            + Nouveau Devis
+          </Button>
+        </div>
       </div>
 
-      <div className="px-6 py-6 space-y-4">
+      <div className="px-6 py-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {quotes?.map((quote) => (
           <div key={quote.id} className="ios-card" data-testid={`quote-${quote.id}`}>
             <div className="flex justify-between items-start mb-4">
@@ -118,14 +150,17 @@ export default function AdminQuotes() {
                     {quote.description}
                   </span>
                 </div>
-                {quote.photos && Array.isArray(quote.photos) && quote.photos.length > 0 && (
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Image className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      {quote.photos.length} photo{quote.photos.length > 1 ? 's' : ''} jointe{quote.photos.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  const photos = quote.photos as string[] | undefined;
+                  return photos && Array.isArray(photos) && photos.length > 0 ? (
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Image className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        {photos.length} photo{photos.length > 1 ? 's' : ''} jointe{photos.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
                 {quote.amount && (
                   <div className="flex items-center space-x-2 mb-2">
                     <Euro className="w-4 h-4 text-green-400" />
@@ -178,20 +213,58 @@ export default function AdminQuotes() {
             )}
 
             {quote.status !== "pending" && (
-              <div className="flex items-center space-x-2 border-t border-border pt-4">
-                <Select onValueChange={(status) => {
-                  updateStatusMutation.mutate({ id: quote.id, status });
-                }}>
-                  <SelectTrigger className="flex-1" data-testid={`select-status-${quote.id}`}>
-                    <SelectValue placeholder="Changer le statut" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="sent">Envoyé</SelectItem>
-                    <SelectItem value="approved">Approuvé</SelectItem>
-                    <SelectItem value="rejected">Rejeté</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-3 border-t border-border pt-4">
+                <div className="flex items-center space-x-2">
+                  <Select onValueChange={(status) => {
+                    updateStatusMutation.mutate({ id: quote.id, status });
+                  }}>
+                    <SelectTrigger className="flex-1" data-testid={`select-status-${quote.id}`}>
+                      <SelectValue placeholder="Changer le statut" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">En attente</SelectItem>
+                      <SelectItem value="sent">Envoyé</SelectItem>
+                      <SelectItem value="approved">Approuvé</SelectItem>
+                      <SelectItem value="rejected">Rejeté</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {quote.amount && (
+                  <div className="space-y-2">
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => window.open(`/api/admin/quotes/${quote.id}/preview`, '_blank')}
+                        data-testid={`button-preview-${quote.id}`}
+                      >
+                        👁️ Aperçu
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => downloadFile(`/api/admin/quotes/${quote.id}/pdf`, `devis-${quote.id}.pdf`)}
+                        data-testid={`button-download-pdf-${quote.id}`}
+                      >
+                        📄 PDF Devis
+                      </Button>
+                    </div>
+                    {quote.status === "approved" && (
+                      <Button 
+                        size="sm"
+                        className="w-full"
+                        onClick={() => convertToInvoiceMutation.mutate(quote.id)}
+                        disabled={convertToInvoiceMutation.isPending}
+                        data-testid={`button-convert-invoice-${quote.id}`}
+                      >
+                        ✅ {convertToInvoiceMutation.isPending ? "Génération..." : "Facturer"}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -203,11 +276,12 @@ export default function AdminQuotes() {
         ))}
 
         {!quotes?.length && (
-          <div className="ios-card text-center py-8">
+          <div className="ios-card text-center py-8 lg:col-span-3">
             <FileText className="text-muted-foreground mx-auto mb-4" size={48} />
             <p className="text-muted-foreground">Aucun devis trouvé</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

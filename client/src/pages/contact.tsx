@@ -8,8 +8,8 @@ export default function Contact() {
     {
       icon: Phone,
       label: "Téléphone",
-      value: "01 23 45 67 89",
-      link: "tel:+33123456789",
+      value: "03.21.40.80.53",
+      link: "tel:+33321408053",
       bgColor: "bg-green-500",
       testId: "link-phone"
     },
@@ -24,7 +24,7 @@ export default function Contact() {
     {
       icon: MapPin,
       label: "Adresse",
-      value: "123 Rue de la Jante\n75001 Paris",
+      value: "46 rue Convention\n62800 Liévin",
       bgColor: "bg-red-500",
       testId: "text-address"
     },
