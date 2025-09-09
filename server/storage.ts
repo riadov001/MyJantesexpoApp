@@ -8,8 +8,8 @@ import {
   users, services, bookings, quotes, invoices, notifications, workProgress, adminSettings, auditLogs, 
   bookingAssignments, timeSlotConfigs, userGroups, userGroupMembers, leaveRequests
 } from "@shared/schema";
-import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 export interface IStorage {
   // Users
