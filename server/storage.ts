@@ -10,6 +10,7 @@ import {
 } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { db } from "./db";
 
 export interface IStorage {
   // Users
@@ -746,4 +747,604 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// In-memory storage implementation for development
+export class MemoryStorage implements IStorage {
+  private users: Map<string, User> = new Map();
+  private services: Map<string, Service> = new Map();
+  private bookings: Map<string, Booking> = new Map();
+  private quotes: Map<string, Quote> = new Map();
+  private invoices: Map<string, Invoice> = new Map();
+  private notifications: Map<string, Notification> = new Map();
+  private workProgress: Map<string, WorkProgress> = new Map();
+  private auditLogs: Map<string, AuditLog> = new Map();
+  private bookingAssignments: Map<string, BookingAssignment> = new Map();
+  private timeSlotConfigs: Map<string, TimeSlotConfig> = new Map();
+  private userGroups: Map<string, UserGroup> = new Map();
+  private userGroupMembers: Map<string, UserGroupMember> = new Map();
+  private leaveRequests: Map<string, LeaveRequest> = new Map();
+  private adminSettings: any = {};
+
+  constructor() {
+    this.initializeServices();
+  }
+
+  private initializeServices() {
+    // Initialize with real services from myjantes.fr
+    const servicesData: Service[] = [
+      {
+        id: nanoid(),
+        name: "Rénovation",
+        description: "Rénovation complète de vos jantes en aluminium avec finition professionnelle",
+        basePrice: "150.00",
+        image: "https://myjantes.fr/wp-content/uploads/2024/01/repar-jantes.jpg",
+        active: true,
+      },
+      {
+        id: nanoid(),
+        name: "Personnalisation",
+        description: "Personnalisation de vos jantes selon vos goûts et couleurs préférées",
+        basePrice: "200.00",
+        image: "https://myjantes.fr/wp-content/uploads/2025/02/jantes-concaver-lexus-1024x675-1.webp",
+        active: true,
+      },
+      {
+        id: nanoid(),
+        name: "Dévoilage",
+        description: "Réparation et redressement de jantes voilées",
+        basePrice: "80.00",
+        image: "https://myjantes.fr/wp-content/uploads/2024/01/dvoilage-3.jpg",
+        active: true,
+      },
+      {
+        id: nanoid(),
+        name: "Décapage",
+        description: "Décapage professionnel pour remettre vos jantes à neuf",
+        basePrice: "120.00",
+        image: "https://myjantes.fr/wp-content/uploads/2025/02/jantes-intro-1024x675.webp",
+        active: true,
+      },
+    ];
+
+    servicesData.forEach(service => {
+      this.services.set(service.id, service);
+    });
+  }
+
+  // Users
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    for (const user of this.users.values()) {
+      if (user.email === email) {
+        return user;
+      }
+    }
+    return undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const user: User = {
+      id: nanoid(),
+      ...insertUser,
+      createdAt: new Date(),
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string): Promise<void> {
+    const user = this.users.get(id);
+    if (user) {
+      user.password = hashedPassword;
+    }
+  }
+
+  async updateUserProfile(id: string, profileData: UpdateClientProfileData): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (user) {
+      Object.assign(user, profileData);
+      return user;
+    }
+    return undefined;
+  }
+
+  async updateUser(id: string, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (user) {
+      Object.assign(user, userData);
+      return user;
+    }
+    return undefined;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    this.users.delete(id);
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  // Services
+  async getServices(): Promise<Service[]> {
+    return Array.from(this.services.values()).filter(s => s.active);
+  }
+
+  async getService(id: string): Promise<Service | undefined> {
+    return this.services.get(id);
+  }
+
+  async createService(insertService: InsertService): Promise<Service> {
+    const service: Service = {
+      id: nanoid(),
+      ...insertService,
+    };
+    this.services.set(service.id, service);
+    return service;
+  }
+
+  // Bookings
+  async getUserBookings(userId: string): Promise<Booking[]> {
+    return Array.from(this.bookings.values()).filter(b => b.userId === userId);
+  }
+
+  async getAllBookings(): Promise<Booking[]> {
+    return Array.from(this.bookings.values());
+  }
+
+  async getBookings(): Promise<Booking[]> {
+    return Array.from(this.bookings.values());
+  }
+
+  async getBooking(id: string): Promise<Booking | undefined> {
+    return this.bookings.get(id);
+  }
+
+  async createBooking(booking: InsertBooking & { userId: string }): Promise<Booking> {
+    const newBooking: Booking = {
+      id: nanoid(),
+      ...booking,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.bookings.set(newBooking.id, newBooking);
+    return newBooking;
+  }
+
+  async updateBookingStatus(id: string, status: string): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (booking) {
+      booking.status = status;
+      booking.updatedAt = new Date();
+      return booking;
+    }
+    return undefined;
+  }
+
+  // Quotes
+  async getUserQuotes(userId: string): Promise<Quote[]> {
+    return Array.from(this.quotes.values()).filter(q => q.userId === userId);
+  }
+
+  async getAllQuotes(): Promise<Quote[]> {
+    return Array.from(this.quotes.values());
+  }
+
+  async getQuote(id: string): Promise<Quote | undefined> {
+    return this.quotes.get(id);
+  }
+
+  async createQuote(quote: InsertQuote & { userId: string }): Promise<Quote> {
+    const newQuote: Quote = {
+      id: nanoid(),
+      ...quote,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.quotes.set(newQuote.id, newQuote);
+    return newQuote;
+  }
+
+  async updateQuoteStatus(id: string, status: string, amount?: string): Promise<Quote | undefined> {
+    const quote = this.quotes.get(id);
+    if (quote) {
+      quote.status = status;
+      if (amount) quote.amount = amount;
+      quote.updatedAt = new Date();
+      return quote;
+    }
+    return undefined;
+  }
+
+  // Invoices
+  async getUserInvoices(userId: string): Promise<Invoice[]> {
+    return Array.from(this.invoices.values()).filter(i => i.userId === userId);
+  }
+
+  async getAllInvoices(): Promise<Invoice[]> {
+    return Array.from(this.invoices.values());
+  }
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    return this.invoices.get(id);
+  }
+
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const invoice: Invoice = {
+      id: nanoid(),
+      ...insertInvoice,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.invoices.set(invoice.id, invoice);
+    return invoice;
+  }
+
+  async updateInvoiceStatus(id: string, status: string): Promise<Invoice | undefined> {
+    const invoice = this.invoices.get(id);
+    if (invoice) {
+      invoice.status = status;
+      invoice.updatedAt = new Date();
+      return invoice;
+    }
+    return undefined;
+  }
+
+  // Notifications
+  async getUserNotifications(userId: string): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.userId === userId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const newNotification: Notification = {
+      id: nanoid(),
+      ...notification,
+      createdAt: new Date(),
+    };
+    this.notifications.set(newNotification.id, newNotification);
+    return newNotification;
+  }
+
+  async markNotificationAsRead(id: string): Promise<void> {
+    const notification = this.notifications.get(id);
+    if (notification) {
+      notification.read = true;
+    }
+  }
+
+  async getUnreadNotificationsCount(userId: string): Promise<number> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.userId === userId && !n.read).length;
+  }
+
+  // Work Progress
+  async getWorkProgressByBooking(bookingId: string): Promise<WorkProgress[]> {
+    return Array.from(this.workProgress.values())
+      .filter(wp => wp.bookingId === bookingId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async createWorkProgress(progress: InsertWorkProgress): Promise<WorkProgress> {
+    const newProgress: WorkProgress = {
+      id: nanoid(),
+      ...progress,
+      createdAt: new Date(),
+    };
+    this.workProgress.set(newProgress.id, newProgress);
+    return newProgress;
+  }
+
+  async updateWorkProgress(id: string, progress: Partial<InsertWorkProgress>): Promise<WorkProgress | undefined> {
+    const existing = this.workProgress.get(id);
+    if (existing) {
+      Object.assign(existing, progress);
+      return existing;
+    }
+    return undefined;
+  }
+
+  // Audit Logs
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const newLog: AuditLog = {
+      id: nanoid(),
+      ...log,
+      createdAt: new Date(),
+    };
+    this.auditLogs.set(newLog.id, newLog);
+    return newLog;
+  }
+
+  async getAuditLogs(entityType?: string, entityId?: string): Promise<AuditLog[]> {
+    let logs = Array.from(this.auditLogs.values());
+    
+    if (entityType && entityId) {
+      logs = logs.filter(log => log.entityType === entityType && log.entityId === entityId);
+    } else if (entityType) {
+      logs = logs.filter(log => log.entityType === entityType);
+    }
+    
+    return logs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  // Booking Assignments
+  async assignEmployeeToBooking(assignment: InsertBookingAssignment): Promise<BookingAssignment> {
+    const newAssignment: BookingAssignment = {
+      id: nanoid(),
+      ...assignment,
+      assignedAt: new Date(),
+    };
+    this.bookingAssignments.set(newAssignment.id, newAssignment);
+    return newAssignment;
+  }
+
+  async getEmployeeAssignments(employeeId: string): Promise<BookingAssignment[]> {
+    return Array.from(this.bookingAssignments.values())
+      .filter(ba => ba.employeeId === employeeId)
+      .sort((a, b) => b.assignedAt.getTime() - a.assignedAt.getTime());
+  }
+
+  async getBookingAssignments(bookingId: string): Promise<BookingAssignment[]> {
+    return Array.from(this.bookingAssignments.values())
+      .filter(ba => ba.bookingId === bookingId);
+  }
+
+  // Enhanced tracking methods
+  async updateBookingWithTracking(id: string, status: string, userId: string): Promise<Booking | undefined> {
+    const oldBooking = this.bookings.get(id);
+    if (oldBooking) {
+      const oldStatus = oldBooking.status;
+      oldBooking.status = status;
+      oldBooking.lastModifiedBy = userId;
+      oldBooking.updatedAt = new Date();
+
+      // Create audit log
+      await this.createAuditLog({
+        userId,
+        action: 'status_change',
+        entityType: 'booking',
+        entityId: id,
+        oldValues: { status: oldStatus },
+        newValues: { status }
+      });
+
+      return oldBooking;
+    }
+    return undefined;
+  }
+
+  async updateQuoteWithTracking(id: string, data: Partial<Quote>, userId: string): Promise<Quote | undefined> {
+    const oldQuote = this.quotes.get(id);
+    if (oldQuote) {
+      const oldValues = { ...oldQuote };
+      Object.assign(oldQuote, data);
+      oldQuote.lastModifiedBy = userId;
+      oldQuote.updatedAt = new Date();
+
+      // Create audit log
+      await this.createAuditLog({
+        userId,
+        action: data.status ? 'status_change' : 'update',
+        entityType: 'quote',
+        entityId: id,
+        oldValues,
+        newValues: data
+      });
+
+      return oldQuote;
+    }
+    return undefined;
+  }
+
+  async updateInvoiceWithTracking(id: string, data: Partial<Invoice>, userId: string): Promise<Invoice | undefined> {
+    const oldInvoice = this.invoices.get(id);
+    if (oldInvoice) {
+      const oldValues = { ...oldInvoice };
+      Object.assign(oldInvoice, data);
+      oldInvoice.lastModifiedBy = userId;
+      oldInvoice.updatedAt = new Date();
+
+      // Create audit log
+      await this.createAuditLog({
+        userId,
+        action: data.status ? 'status_change' : 'update',
+        entityType: 'invoice',
+        entityId: id,
+        oldValues,
+        newValues: data
+      });
+
+      return oldInvoice;
+    }
+    return undefined;
+  }
+
+  // Employee management
+  async getEmployees(): Promise<User[]> {
+    return Array.from(this.users.values()).filter(u => u.role === 'employee');
+  }
+
+  // Time Slot Configurations
+  async getTimeSlotConfigs(): Promise<TimeSlotConfig[]> {
+    return Array.from(this.timeSlotConfigs.values());
+  }
+
+  async createTimeSlotConfig(config: InsertTimeSlotConfig): Promise<TimeSlotConfig> {
+    const newConfig: TimeSlotConfig = {
+      id: nanoid(),
+      ...config,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.timeSlotConfigs.set(newConfig.id, newConfig);
+    return newConfig;
+  }
+
+  async updateTimeSlotConfig(date: string, timeSlot: string, data: Partial<InsertTimeSlotConfig>): Promise<TimeSlotConfig | undefined> {
+    // Find config by date and timeSlot
+    for (const config of this.timeSlotConfigs.values()) {
+      if (config.date === date && config.timeSlot === timeSlot) {
+        Object.assign(config, data);
+        config.updatedAt = new Date();
+        return config;
+      }
+    }
+    return undefined;
+  }
+
+  async getTimeSlotConfig(date: string, timeSlot: string): Promise<TimeSlotConfig | undefined> {
+    for (const config of this.timeSlotConfigs.values()) {
+      if (config.date === date && config.timeSlot === timeSlot) {
+        return config;
+      }
+    }
+    return undefined;
+  }
+
+  // Admin Settings
+  async getAdminSettings(): Promise<any> {
+    return this.adminSettings;
+  }
+
+  async updateAdminSettings(settings: any): Promise<any> {
+    Object.assign(this.adminSettings, settings);
+    return this.adminSettings;
+  }
+
+  // User Groups
+  async getUserGroups(): Promise<UserGroup[]> {
+    return Array.from(this.userGroups.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async getUserGroup(id: string): Promise<UserGroup | undefined> {
+    return this.userGroups.get(id);
+  }
+
+  async createUserGroup(group: InsertUserGroup): Promise<UserGroup> {
+    const newGroup: UserGroup = {
+      id: nanoid(),
+      ...group,
+      createdAt: new Date(),
+    };
+    this.userGroups.set(newGroup.id, newGroup);
+    return newGroup;
+  }
+
+  async updateUserGroup(id: string, updates: Partial<InsertUserGroup>): Promise<UserGroup | undefined> {
+    const group = this.userGroups.get(id);
+    if (group) {
+      Object.assign(group, updates);
+      return group;
+    }
+    return undefined;
+  }
+
+  async deleteUserGroup(id: string): Promise<void> {
+    // Remove all members from the group
+    for (const [memberId, member] of this.userGroupMembers) {
+      if (member.groupId === id) {
+        this.userGroupMembers.delete(memberId);
+      }
+    }
+    // Delete the group
+    this.userGroups.delete(id);
+  }
+
+  async getUsersByGroup(groupId: string): Promise<User[]> {
+    const memberUserIds = Array.from(this.userGroupMembers.values())
+      .filter(member => member.groupId === groupId)
+      .map(member => member.userId);
+    
+    return Array.from(this.users.values())
+      .filter(user => memberUserIds.includes(user.id));
+  }
+
+  async getUserGroupMemberships(userId: string): Promise<UserGroup[]> {
+    const groupIds = Array.from(this.userGroupMembers.values())
+      .filter(member => member.userId === userId)
+      .map(member => member.groupId);
+    
+    return Array.from(this.userGroups.values())
+      .filter(group => groupIds.includes(group.id));
+  }
+
+  async addUserToGroup(userId: string, groupId: string, addedBy: string): Promise<UserGroupMember> {
+    const newMember: UserGroupMember = {
+      id: nanoid(),
+      userId,
+      groupId,
+      addedBy,
+      joinedAt: new Date(),
+    };
+    this.userGroupMembers.set(newMember.id, newMember);
+    return newMember;
+  }
+
+  async removeUserFromGroup(userId: string, groupId: string): Promise<void> {
+    for (const [memberId, member] of this.userGroupMembers) {
+      if (member.userId === userId && member.groupId === groupId) {
+        this.userGroupMembers.delete(memberId);
+        break;
+      }
+    }
+  }
+
+  // Leave Requests
+  async getLeaveRequests(employeeId?: string): Promise<LeaveRequest[]> {
+    let requests = Array.from(this.leaveRequests.values());
+    if (employeeId) {
+      requests = requests.filter(r => r.employeeId === employeeId);
+    }
+    return requests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
+    return this.leaveRequests.get(id);
+  }
+
+  async createLeaveRequest(request: InsertLeaveRequest): Promise<LeaveRequest> {
+    const newRequest: LeaveRequest = {
+      id: nanoid(),
+      ...request,
+      createdAt: new Date(),
+    };
+    this.leaveRequests.set(newRequest.id, newRequest);
+    return newRequest;
+  }
+
+  async updateLeaveRequestStatus(id: string, status: string, approvedBy: string, notes?: string): Promise<LeaveRequest | undefined> {
+    const request = this.leaveRequests.get(id);
+    if (request) {
+      request.status = status;
+      request.approvedBy = approvedBy;
+      request.approvedAt = new Date();
+      if (notes) request.notes = notes;
+      return request;
+    }
+    return undefined;
+  }
+
+  async getUserLeaveStatus(userId: string): Promise<{isOnLeave: boolean, leaveEnd?: Date}> {
+    const user = this.users.get(userId);
+    return {
+      isOnLeave: user?.isOnLeave || false,
+      leaveEnd: user?.leaveEndDate || undefined
+    };
+  }
+
+  async updateUserLeaveStatus(userId: string, isOnLeave: boolean, startDate?: Date, endDate?: Date, reason?: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.isOnLeave = isOnLeave;
+      user.leaveStartDate = startDate || null;
+      user.leaveEndDate = endDate || null;
+      user.leaveReason = reason || null;
+    }
+  }
+}
+
+// Use memory storage for development when database is not available
+export const storage = new MemoryStorage();
