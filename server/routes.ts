@@ -300,13 +300,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create invoice when quote is accepted
       if (updatedQuote && updatedQuote.amount) {
-        await storage.createInvoice({
+        const newInvoice = await storage.createInvoice({
           userId: req.user.userId,
           quoteId: updatedQuote.id,
           amount: updatedQuote.amount,
           description: `Facture pour devis #${updatedQuote.id}`,
           status: "unpaid",
         });
+
+        // Envoyer email avec facture en PJ lors de la création
+        const user = await storage.getUser(req.user.userId);
+        if (user && user.email && newInvoice) {
+          const emailService = new EmailService();
+          const pdfGenerator = new PDFGenerator();
+          const pdfBuffer = await pdfGenerator.generateInvoicePDF(newInvoice);
+          await emailService.sendInvoicePendingEmail(
+            user.email,
+            user.name,
+            newInvoice.id,
+            pdfBuffer
+          );
+          console.log(`Email envoyé pour nouvelle facture: ${newInvoice.id}`);
+        }
       }
 
       res.json(updatedQuote);
@@ -333,8 +348,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedInvoice = await storage.updateInvoiceStatus(req.params.id, "paid");
+      
+      // Envoi d'email de confirmation de paiement
+      const user = await storage.getUser(invoice.userId);
+      if (user && user.email) {
+        const emailService = new EmailService();
+        await emailService.sendInvoicePaidEmail(
+          user.email,
+          user.name,
+          invoice.id
+        );
+        console.log(`Email envoyé pour facture payée: ${invoice.id}`);
+      }
+
       res.json(updatedInvoice);
     } catch (error) {
+      console.error('Erreur lors de la mise à jour de la facture:', error);
       res.status(500).json({ message: "Erreur lors de la mise à jour de la facture" });
     }
   });
@@ -446,10 +475,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: "booking",
           relatedId: booking.id,
         });
+
+        // Envoi d'email automatique si la réservation est terminée
+        if (status === 'completed') {
+          const user = await storage.getUser(booking.userId);
+          if (user && user.email) {
+            const emailService = new EmailService();
+            await emailService.sendBookingCompletedEmail(
+              user.email,
+              user.name,
+              booking.id
+            );
+            console.log(`Email envoyé pour réservation terminée: ${booking.id}`);
+          }
+        }
       }
       
       res.json(booking);
     } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
       res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
     }
   });
@@ -479,10 +523,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: "quote",
           relatedId: quote.id,
         });
+
+        // Envoi d'email automatique si le devis est validé/approuvé
+        if (status === 'approved' || status === 'accepted') {
+          const user = await storage.getUser(quote.userId);
+          if (user && user.email) {
+            const emailService = new EmailService();
+            await emailService.sendQuoteApprovedEmail(
+              user.email,
+              user.name,
+              quote.id
+            );
+            console.log(`Email envoyé pour devis validé: ${quote.id}`);
+          }
+        }
       }
       
       res.json(quote);
     } catch (error) {
+      console.error('Erreur lors de la mise à jour du devis:', error);
       res.status(500).json({ message: "Erreur lors de la mise à jour du devis" });
     }
   });
@@ -552,10 +611,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: "invoice",
           relatedId: invoice.id,
         });
+
+        // Envoi d'email automatique selon le statut
+        const user = await storage.getUser(invoice.userId);
+        if (user && user.email) {
+          const emailService = new EmailService();
+          
+          if (status === 'unpaid') {
+            // Générer PDF et envoyer email avec facture en PJ
+            const pdfGenerator = new PDFGenerator();
+            const pdfBuffer = await pdfGenerator.generateInvoicePDF(invoice);
+            await emailService.sendInvoicePendingEmail(
+              user.email,
+              user.name,
+              invoice.id,
+              pdfBuffer
+            );
+            console.log(`Email envoyé pour facture en attente: ${invoice.id}`);
+          } else if (status === 'paid') {
+            // Envoyer email de confirmation de paiement
+            await emailService.sendInvoicePaidEmail(
+              user.email,
+              user.name,
+              invoice.id
+            );
+            console.log(`Email envoyé pour facture payée: ${invoice.id}`);
+          }
+        }
       }
       
       res.json(invoice);
     } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
       res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
     }
   });
