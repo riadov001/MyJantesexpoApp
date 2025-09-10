@@ -7,12 +7,8 @@ if (process.env.SENDGRID_API_KEY) {
   mailService.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-// Configuration Brevo
-let brevoApiInstance: brevo.TransactionalEmailsApi | null = null;
-if (process.env.BREVO_API_KEY) {
-  brevoApiInstance = new brevo.TransactionalEmailsApi();
-  // Configuration simplifiée pour Brevo
-}
+// Configuration Brevo simplifiée
+const brevoApiKey = process.env.BREVO_API_KEY;
 
 interface EmailParams {
   to: string;
@@ -33,37 +29,40 @@ export class EmailService {
     html: string;
     attachments?: Array<{ content: string; filename: string; type: string }>;
   }): Promise<boolean> {
-    if (!brevoApiInstance) {
-      console.error('Brevo API not configured');
+    if (!brevoApiKey) {
+      console.error('Brevo API key not configured');
       return false;
     }
 
     try {
-      const sendSmtpEmail = new brevo.SendSmtpEmail();
-      sendSmtpEmail.sender = { name: "MyJantes", email: "contact@myjantes.fr" };
-      sendSmtpEmail.to = [{ email: params.to }];
-      sendSmtpEmail.subject = params.subject;
-      sendSmtpEmail.htmlContent = params.html;
-
-      if (params.attachments && params.attachments.length > 0) {
-        sendSmtpEmail.attachment = params.attachments.map(att => ({
-          content: att.content,
-          name: att.filename
-        }));
-      }
+      const emailData = {
+        sender: { name: "MyJantes", email: "contact@myjantes.fr" },
+        to: [{ email: params.to }],
+        subject: params.subject,
+        htmlContent: params.html,
+        ...(params.attachments && params.attachments.length > 0 && {
+          attachment: params.attachments.map(att => ({
+            content: att.content,
+            name: att.filename
+          }))
+        })
+      };
 
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
+          'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'api-key': process.env.BREVO_API_KEY!
+          'api-key': brevoApiKey
         },
-        body: JSON.stringify(sendSmtpEmail)
+        body: JSON.stringify(emailData)
       });
 
       if (!response.ok) {
-        throw new Error(`Brevo API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Brevo API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
+
       console.log(`Email envoyé avec succès via Brevo à ${params.to}`);
       return true;
     } catch (error) {
