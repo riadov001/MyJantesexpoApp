@@ -1346,5 +1346,5 @@ export class MemoryStorage implements IStorage {
   }
 }
 
-// Use memory storage for development when database is not available
-export const storage = new MemoryStorage();
+// Use database storage with PostgreSQL
+export const storage = new DatabaseStorage();
