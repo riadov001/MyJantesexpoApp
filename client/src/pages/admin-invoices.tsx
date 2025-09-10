@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiDelete, apiPut } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera, Smartphone, Eye } from "lucide-react";
+import { FileText, Euro, Clock, Plus, Send, Trash2, Edit, Download, Upload, Camera, Smartphone, Eye, QrCode, Printer } from "lucide-react";
 import type { Invoice } from "@shared/schema";
 import PhotoPicker from "@/components/photo-picker";
+import { QRCodeSVG } from "qrcode.react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+// Labels pour les tickets d'identification des roues et clés
+const LABELS = ["AVD", "AVG", "ARD", "ARG", "Clé"];
 
 interface CreateInvoiceData {
   userId: string;
@@ -59,6 +65,9 @@ export default function AdminInvoices() {
   const [photosBefore, setPhotosBefore] = useState<string[]>([]);
   const [photosAfter, setPhotosAfter] = useState<string[]>([]);
   const [photosWorkDetails, setPhotosWorkDetails] = useState("");
+
+  // Références pour la génération de PDF des tickets
+  const pdfRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -216,6 +225,129 @@ export default function AdminInvoices() {
         photosAfter,
         workDetails: photosWorkDetails
       }
+    });
+  };
+
+  // Fonction pour générer le PDF des tickets avec jsPDF + html2canvas
+  const generateTicketsPDF = async (invoiceId: string) => {
+    const input = pdfRefs.current[invoiceId];
+    if (!input) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de trouver les éléments à exporter.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(input, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pageWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+      pdf.save(`etiquettes-facture-${invoiceId.substring(0, 8)}.pdf`);
+      
+      toast({
+        title: "PDF généré",
+        description: "Les étiquettes ont été exportées en PDF avec succès."
+      });
+    } catch (error) {
+      console.error("Erreur lors de la génération du PDF:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de générer le PDF des étiquettes.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Fonction pour l'impression directe des tickets
+  const printTickets = (invoiceId: string) => {
+    const printContents = document.getElementById(`print-area-${invoiceId}`);
+    if (!printContents) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de trouver les éléments à imprimer.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newWindow = window.open("", "_blank");
+    if (!newWindow) {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ouvrir la fenêtre d'impression.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    newWindow.document.write(`
+      <html>
+        <head>
+          <title>Étiquettes Facture ${invoiceId.substring(0, 8)}</title>
+          <style>
+            @media print {
+              body {
+                margin: 0;
+                padding: 10mm;
+                font-family: Arial, sans-serif;
+              }
+              .labels-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: repeat(3, 1fr);
+                gap: 10mm;
+                page-break-inside: avoid;
+              }
+              .label-card {
+                border: 1px solid #000;
+                padding: 10px;
+                border-radius: 6px;
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                min-height: 120px;
+              }
+              h3, p {
+                margin: 4px 0;
+                font-size: 14px;
+              }
+              h3 {
+                font-weight: bold;
+                font-size: 16px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContents.innerHTML}
+        </body>
+      </html>
+    `);
+    newWindow.document.close();
+    newWindow.focus();
+    newWindow.print();
+    newWindow.close();
+
+    toast({
+      title: "Impression lancée",
+      description: "Les étiquettes sont en cours d'impression."
     });
   };
 
@@ -634,6 +766,107 @@ export default function AdminInvoices() {
                     <p>Supprimer facture</p>
                   </TooltipContent>
                 </Tooltip>
+              </div>
+            </div>
+
+            {/* Section Tickets/Étiquettes */}
+            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+              <h4 className="text-sm font-semibold mb-3 flex items-center">
+                <QrCode className="w-4 h-4 mr-2" />
+                Étiquettes d'identification
+              </h4>
+              
+              {/* Boutons d'actions pour les tickets */}
+              <div className="flex gap-2 mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => generateTicketsPDF(invoice.id)}
+                  data-testid={`button-tickets-pdf-${invoice.id}`}
+                  className="flex-1"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => printTickets(invoice.id)}
+                  data-testid={`button-tickets-print-${invoice.id}`}
+                  className="flex-1"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Imprimer
+                </Button>
+              </div>
+
+              {/* Grille des tickets (pour génération PDF/impression) */}
+              <div
+                id={`print-area-${invoice.id}`}
+                ref={(el) => (pdfRefs.current[invoice.id] = el)}
+                className="labels-grid"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gridTemplateRows: "repeat(3, 1fr)",
+                  gap: "12px",
+                  maxWidth: "100%",
+                }}
+              >
+                {LABELS.map((label) => (
+                  <div
+                    key={label}
+                    className="label-card"
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      padding: "12px",
+                      borderRadius: "6px",
+                      textAlign: "center",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      minHeight: "100px",
+                      backgroundColor: "#ffffff",
+                    }}
+                    data-testid={`ticket-${label}-${invoice.id}`}
+                  >
+                    <h3 style={{ margin: "4px 0", fontSize: "14px", fontWeight: "bold" }}>
+                      {label}
+                    </h3>
+                    <p style={{ margin: "4px 0", fontSize: "12px", color: "#64748b" }}>
+                      Facture: MY-{invoice.id.substring(0, 8)}
+                    </p>
+                    <QRCodeSVG
+                      value={JSON.stringify({
+                        code: label,
+                        invoiceNumber: `MY-${invoice.id.substring(0, 8)}`,
+                        invoiceId: invoice.id,
+                        clientEmail: (users as any[])?.find((u: any) => u.id === invoice.userId)?.email || '',
+                        amount: invoice.amount
+                      })}
+                      size={60}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </div>
+                ))}
+
+                {/* 6e case vide pour équilibrer la grille */}
+                {LABELS.length < 6 && (
+                  <div 
+                    className="label-card" 
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderStyle: "dashed",
+                      padding: "12px",
+                      borderRadius: "6px",
+                      minHeight: "100px",
+                      backgroundColor: "#f8fafc",
+                      opacity: 0.5
+                    }}
+                  />
+                )}
               </div>
             </div>
 

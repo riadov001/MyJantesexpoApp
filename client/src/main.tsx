@@ -53,6 +53,26 @@ queryClient.setDefaultOptions({
   },
 });
 
+// Inject error overlay removal code
+const errorOverlayScript = document.createElement('script');
+errorOverlayScript.textContent = `
+// Remove @vitejs/plugin-react overlay errors
+document.addEventListener('DOMContentLoaded', function() {
+  const hideOverlays = () => {
+    const overlays = document.querySelectorAll('vite-error-overlay');
+    overlays.forEach(overlay => overlay.remove());
+  };
+  
+  hideOverlays();
+  
+  const observer = new MutationObserver(hideOverlays);
+  observer.observe(document.body, { childList: true, subtree: true });
+  
+  setInterval(hideOverlays, 100);
+});
+`;
+document.head.appendChild(errorOverlayScript);
+
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
     <Toaster />
