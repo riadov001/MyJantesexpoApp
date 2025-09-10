@@ -323,14 +323,17 @@ export default function AdminInvoices() {
                 justify-content: center;
                 align-items: center;
                 min-height: 120px;
+                background-color: #fff;
               }
               h3, p {
                 margin: 4px 0;
                 font-size: 14px;
+                color: #000 !important;
               }
               h3 {
                 font-weight: bold;
-                font-size: 16px;
+                font-size: 18px;
+                color: #000 !important;
               }
             }
           </style>
@@ -831,10 +834,10 @@ export default function AdminInvoices() {
                     }}
                     data-testid={`ticket-${label}-${invoice.id}`}
                   >
-                    <h3 style={{ margin: "4px 0", fontSize: "14px", fontWeight: "bold" }}>
+                    <h3 style={{ margin: "4px 0", fontSize: "16px", fontWeight: "bold", color: "#000000" }}>
                       {label}
                     </h3>
-                    <p style={{ margin: "4px 0", fontSize: "12px", color: "#64748b" }}>
+                    <p style={{ margin: "4px 0", fontSize: "12px", color: "#000000" }}>
                       Facture: MY-{invoice.id.substring(0, 8)}
                     </p>
                     <QRCodeSVG
