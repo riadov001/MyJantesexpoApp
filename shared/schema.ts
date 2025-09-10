@@ -109,6 +109,7 @@ export const quotes = pgTable("quotes", {
   wheelDiameter: text("wheel_diameter"), // Diamètre en pouces
   description: text("description").notNull(),
   photos: jsonb("photos").default([]),
+  videos: jsonb("videos").default([]), // Support pour les vidéos
   amount: decimal("amount", { precision: 10, scale: 2 }),
   status: text("status").default("pending"),
   lastModifiedBy: varchar("last_modified_by").references(() => users.id),
@@ -216,6 +217,44 @@ export const timeSlotConfigs = pgTable("time_slot_configs", {
   dateTimeIndex: uniqueIndex("date_time_idx").on(table.date, table.timeSlot),
 }));
 
+// Table de gestion des prestations - regroupe booking, devis et factures
+export const prestations = pgTable("prestations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  serviceId: varchar("service_id").references(() => services.id),
+  bookingId: varchar("booking_id").references(() => bookings.id),
+  quoteId: varchar("quote_id").references(() => quotes.id),
+  invoiceId: varchar("invoice_id").references(() => invoices.id),
+  // Informations véhicule
+  vehicleBrand: text("vehicle_brand").notNull(),
+  vehicleModel: text("vehicle_model").notNull(),
+  vehiclePlate: text("vehicle_plate").notNull(),
+  vehicleYear: text("vehicle_year"),
+  // Photos d'état des lieux (minimum 6 photos requises)
+  vehiclePhotos: jsonb("vehicle_photos").default([]), // Photos état des lieux
+  vehicleVideo: text("vehicle_video"), // Vidéo optionnelle
+  // Suivi de la prestation
+  status: text("status").default("created"), // created, in_progress, completed, delivered
+  notes: text("notes"),
+  startDate: timestamp("start_date"),
+  completedDate: timestamp("completed_date"),
+  deliveryDate: timestamp("delivery_date"),
+  assignedEmployee: varchar("assigned_employee").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Configuration administrateur pour les jantes et services
+export const systemConfigurations = pgTable("system_configurations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: jsonb("value").notNull(), // Configuration flexible en JSON
+  description: text("description"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -298,6 +337,19 @@ export const insertBookingAssignmentSchema = createInsertSchema(bookingAssignmen
 });
 
 export const insertTimeSlotConfigSchema = createInsertSchema(timeSlotConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Schémas pour les nouvelles tables
+export const insertPrestationSchema = createInsertSchema(prestations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSystemConfigurationSchema = createInsertSchema(systemConfigurations).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -391,6 +443,13 @@ export type BookingAssignment = typeof bookingAssignments.$inferSelect;
 export type InsertBookingAssignment = z.infer<typeof insertBookingAssignmentSchema>;
 export type TimeSlotConfig = typeof timeSlotConfigs.$inferSelect;
 export type InsertTimeSlotConfig = z.infer<typeof insertTimeSlotConfigSchema>;
+
+// Types pour les nouvelles tables
+export type Prestation = typeof prestations.$inferSelect;
+export type InsertPrestation = z.infer<typeof insertPrestationSchema>;
+export type SystemConfiguration = typeof systemConfigurations.$inferSelect;
+export type InsertSystemConfiguration = z.infer<typeof insertSystemConfigurationSchema>;
+
 export type LoginData = z.infer<typeof loginSchema>;
 export type ChangePasswordData = z.infer<typeof changePasswordSchema>;
 export type UpdateClientProfileData = z.infer<typeof updateClientProfileSchema>;
