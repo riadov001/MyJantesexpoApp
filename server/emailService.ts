@@ -36,7 +36,7 @@ export class EmailService {
 
     try {
       const emailData = {
-        sender: { name: "MyJantes", email: "contact@myjantes.fr" },
+        sender: { name: "MyJantes", email: "myjantesapp@gmail.com" },
         to: [{ email: params.to }],
         subject: params.subject,
         htmlContent: params.html,
